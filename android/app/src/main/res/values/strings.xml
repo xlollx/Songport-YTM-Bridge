@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Songport YTM Bridge</string>
+    <string name="login_title">Sign in to YouTube Music</string>
+    <string name="intro">Optional companion for Songport. It connects YouTube Music through the same web interface the music.youtube.com player uses, so you do not need a Google Cloud project. Songport only receives your playlists and tracks; the login itself stays in this app.</string>
+    <string name="warning_title">Read this first</string>
+    <string name="warning_body">This is not an official Google API. Using it is against the YouTube Terms of Service, it can stop working whenever Google changes something, and in the worst case Google could restrict the account you sign in with. Use it at your own risk, ideally with an account you can afford to lose. The official route (your own Google Cloud key) remains available in Songport.</string>
+    <string name="status_connected">Connected as %1$s</string>
+    <string name="status_disconnected">Not connected</string>
+    <string name="privacy_note">Your session is stored encrypted on this phone only. It is never sent to Songport, to its developer or to anyone else.</string>
+    <string name="connect">Sign in with Google</string>
+    <string name="disconnect">Sign out</string>
+    <string name="open_songport">Open Songport</string>
+    <string name="source_code">Source code and license</string>
+    <string name="version">Version %1$s</string>
+</resources>

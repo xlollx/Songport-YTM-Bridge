@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Il marchio Songport: una nota dentro un anello di sincronizzazione. Tutto nella zona sicura (r=33). -->
+    <!-- Anello: due archi -->
+    <path android:pathData="M30.6,40.5 A27,27 0 0 1 77.4,40.5"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="5.5" android:strokeLineCap="round" />
+    <path android:pathData="M77.4,67.5 A27,27 0 0 1 30.6,67.5"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="5.5" android:strokeLineCap="round" />
+    <!-- Punte delle frecce -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M81.85,36.2 L71.45,42.2 L81.4,47.4 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M26.15,71.8 L36.55,65.8 L26.6,60.6 Z" />
+    <!-- Nota: testa, gambo, bandierina -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54.08,61.11 A7,5.6 -20 1 1 40.92,65.89 A7,5.6 -20 1 1 54.08,61.11 Z" />
+    <path android:pathData="M52.6,62.5 L52.6,37.5"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="3.6" android:strokeLineCap="round" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M52.6,37.2 C58.5,38.6 63.4,42.4 63.2,49.6 C61.6,45.2 58,42.9 52.6,42.6 Z" />
+</vector>

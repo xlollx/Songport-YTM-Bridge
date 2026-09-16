@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Il Bridge apre Songport dal suo pulsante: serve la visibilita' del pacchetto (Android 11+). -->
+    <queries>
+        <package android:name="com.xlollx.songport" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Bridge">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Login: Songport la avvia con l'azione esplicita qui sotto; l'utente accede su accounts.google.com. -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true"
+            android:label="@string/login_title">
+            <intent-filter>
+                <action android:name="com.xlollx.songport.ytmbridge.LOGIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- L'interfaccia verso Songport. Esportato, ma ogni chiamata verifica pacchetto e firma del chiamante. -->
+        <provider
+            android:name=".BridgeProvider"
+            android:authorities="com.xlollx.songport.ytmbridge.provider"
+            android:exported="true" />
+    </application>
+</manifest>
