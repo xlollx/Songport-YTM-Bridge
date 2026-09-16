@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,6 +68,7 @@ private fun Screen() {
     val login = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { version++ }
     val connected = remember(version) { Session.isConnected(ctx) }
     val account = remember(version) { Session.account(ctx) }
+    var showDisclaimer by remember { mutableStateOf(false) }
 
     Column(
         Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp).verticalScroll(rememberScrollState()),
@@ -79,8 +81,15 @@ private fun Screen() {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.warning_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
                 Text(stringResource(R.string.warning_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                TextButton(onClick = { showDisclaimer = true }) { Text(stringResource(R.string.disclaimer_review)) }
             }
         }
+        if (showDisclaimer) AlertDialog(
+            onDismissRequest = { showDisclaimer = false },
+            title = { Text(stringResource(R.string.disclaimer_title)) },
+            text = { Text(stringResource(R.string.disclaimer_body), modifier = Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { TextButton(onClick = { Disclaimer.accept(ctx); showDisclaimer = false }) { Text(stringResource(R.string.disclaimer_accept)) } },
+        )
 
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

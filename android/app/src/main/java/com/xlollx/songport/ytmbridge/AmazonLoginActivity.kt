@@ -20,9 +20,13 @@ class AmazonLoginActivity : ComponentActivity() {
     @Volatile private var checking = false
     @Volatile private var done = false
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Disclaimer.require(this) { setup() }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setup() {
         web = WebView(this)
         setContentView(web)
         CookieManager.getInstance().apply { setAcceptCookie(true); setAcceptThirdPartyCookies(web, true) }
@@ -58,7 +62,7 @@ class AmazonLoginActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        web.destroy()
+        if (::web.isInitialized) web.destroy()
         super.onDestroy()
     }
 

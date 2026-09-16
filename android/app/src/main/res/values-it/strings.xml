@@ -16,6 +16,10 @@
     <string name="amazon_capture_share">Condividi</string>
     <string name="amazon_capture_clear">Svuota</string>
     <string name="amazon_capture_count">%1$d chiamate catturate</string>
+    <string name="disclaimer_title">Esclusione di responsabilità</string>
+    <string name="disclaimer_body">Songport Bridge è un progetto indipendente e open source. Non è affiliato, approvato o collegato a Google, YouTube, Amazon o ad alcun servizio musicale.\n\nComunica con questi servizi attraverso le stesse interfacce usate dai loro player web, non tramite un\'API ufficiale. Questo è contrario ai loro termini di servizio. Può smettere di funzionare in qualsiasi momento e il servizio può limitare, sospendere o chiudere l\'account con cui accedi.\n\nIl software è fornito \"così com\'è\", senza garanzie di alcun tipo. Continuando accetti di usarlo interamente a tuo rischio e che lo sviluppatore non assume alcuna responsabilità per qualsiasi conseguenza, comprese limitazioni ai tuoi account o perdita di dati.</string>
+    <string name="disclaimer_accept">Ho capito e accetto</string>
+    <string name="disclaimer_review">Leggi l\'esclusione di responsabilità</string>
     <string name="warning_title">Leggi prima di continuare</string>
     <string name="warning_body">Questa non è un\'API ufficiale di Google. Usarla è contrario ai Termini di servizio di YouTube, può smettere di funzionare quando Google cambia qualcosa e, nel caso peggiore, Google potrebbe limitare l\'account con cui accedi. Usala a tuo rischio, meglio con un account che puoi permetterti di perdere. La strada ufficiale (una tua chiave Google Cloud) resta disponibile in Songport.</string>
     <string name="status_connected">Collegato come %1$s</string>

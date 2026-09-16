@@ -27,9 +27,14 @@ class LoginActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var done = false
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The liability notice comes first, also when Songport starts this screen directly.
+        Disclaimer.require(this) { setup() }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setup() {
         web = WebView(this)
         setContentView(web)
         CookieManager.getInstance().apply {
@@ -98,7 +103,7 @@ class LoginActivity : ComponentActivity() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        web.destroy()
+        if (::web.isInitialized) web.destroy()
         super.onDestroy()
     }
 

@@ -16,6 +16,10 @@
     <string name="amazon_capture_share">Share</string>
     <string name="amazon_capture_clear">Clear</string>
     <string name="amazon_capture_count">%1$d calls captured</string>
+    <string name="disclaimer_title">Disclaimer</string>
+    <string name="disclaimer_body">Songport Bridge is an independent, open-source project. It is not affiliated with, endorsed by or connected to Google, YouTube, Amazon or any music service.\n\nIt talks to these services through the same interfaces their own web players use, not through an official API. This is against their terms of service. It can stop working at any time, and the service may limit, suspend or close the account you sign in with.\n\nThe software is provided \"as is\", without warranty of any kind. By continuing you accept that you use it entirely at your own risk and that the developer accepts no responsibility or liability for any consequence, including restrictions on your accounts or loss of data.</string>
+    <string name="disclaimer_accept">I understand and accept</string>
+    <string name="disclaimer_review">Read the disclaimer</string>
     <string name="warning_title">Read this first</string>
     <string name="warning_body">This is not an official Google API. Using it is against the YouTube Terms of Service, it can stop working whenever Google changes something, and in the worst case Google could restrict the account you sign in with. Use it at your own risk, ideally with an account you can afford to lose. The official route (your own Google Cloud key) remains available in Songport.</string>
     <string name="status_connected">Connected as %1$s</string>
