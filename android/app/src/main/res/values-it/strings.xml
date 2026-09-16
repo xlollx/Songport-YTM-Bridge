@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Songport YTM Bridge</string>
+    <string name="app_name">Songport Bridge</string>
     <string name="login_title">Accedi a YouTube Music</string>
-    <string name="intro">Componente facoltativo per Songport. Collega YouTube Music attraverso la stessa interfaccia web usata dal player di music.youtube.com, così non serve un progetto Google Cloud. Songport riceve solo playlist e brani; il login resta in questa app.</string>
+    <string name="intro">Componente facoltativo per Songport. Collega i servizi senza API aperta (YouTube Music e, in via sperimentale, Amazon Music) attraverso la stessa interfaccia web usata dai loro player, così non servono chiavi da sviluppatore. Songport riceve solo playlist e brani; i login restano in questa app.</string>
+    <string name="ytm_title">YouTube Music</string>
+    <string name="amazon_title">Amazon Music (sperimentale)</string>
+    <string name="amazon_intro">Anche Amazon Music non ha un\'API aperta, e quella ufficiale è riservata ai partner approvati. Questo connettore usa l\'interfaccia del player web ed è ancora in completamento: accedi, esegui il test di connessione, poi usa la cattura del traffico così le parti mancanti possono essere finite sul protocollo reale.</string>
+    <string name="amazon_connect">Accedi ad Amazon</string>
+    <string name="amazon_test">Prova la connessione</string>
+    <string name="amazon_test_running">Verifica in corso…</string>
+    <string name="amazon_test_ok">Collegato come %1$s. La ricerca di prova ha restituito %2$d brani.</string>
+    <string name="amazon_test_fail">Test fallito: %1$s</string>
+    <string name="amazon_capture">Cattura traffico</string>
+    <string name="amazon_capture_intro">Usa Amazon Music normalmente qui: apri Libreria → Playlist, apri una tua playlist, crea una playlist, aggiungici un brano, rimuovilo, cerca un brano. Ogni chiamata del player viene scritta in un file su questo telefono, senza cookie né token. Poi tocca Condividi e invia il file allo sviluppatore.</string>
+    <string name="amazon_capture_share">Condividi</string>
+    <string name="amazon_capture_clear">Svuota</string>
+    <string name="amazon_capture_count">%1$d chiamate catturate</string>
     <string name="warning_title">Leggi prima di continuare</string>
     <string name="warning_body">Questa non è un\'API ufficiale di Google. Usarla è contrario ai Termini di servizio di YouTube, può smettere di funzionare quando Google cambia qualcosa e, nel caso peggiore, Google potrebbe limitare l\'account con cui accedi. Usala a tuo rischio, meglio con un account che puoi permetterti di perdere. La strada ufficiale (una tua chiave Google Cloud) resta disponibile in Songport.</string>
     <string name="status_connected">Collegato come %1$s</string>

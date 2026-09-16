@@ -36,6 +36,34 @@
             </intent-filter>
         </activity>
 
+        <!-- Amazon Music (experimental): sign-in on music.amazon.*, started by Songport with the action below. -->
+        <activity
+            android:name=".AmazonLoginActivity"
+            android:exported="true"
+            android:label="@string/amazon_title">
+            <intent-filter>
+                <action android:name="com.xlollx.songport.ytmbridge.AMAZON_LOGIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Development aid: records the web player's API calls so the connector can be completed. -->
+        <activity
+            android:name=".AmazonCaptureActivity"
+            android:exported="false"
+            android:label="@string/amazon_capture" />
+
+        <!-- Shares the capture file with other apps (read-only, per request). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.xlollx.songport.ytmbridge.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- L'interfaccia verso Songport. Esportato, ma ogni chiamata verifica pacchetto e firma del chiamante. -->
         <provider
             android:name=".BridgeProvider"

@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Songport YTM Bridge</string>
+    <string name="app_name">Songport Bridge</string>
     <string name="login_title">Bei YouTube Music anmelden</string>
-    <string name="intro">Optionale Begleit-App für Songport. Sie verbindet YouTube Music über dieselbe Web-Oberfläche, die auch der Player auf music.youtube.com nutzt, sodass du kein Google Cloud-Projekt brauchst. Songport erhält nur deine Playlists und Titel; die Anmeldung selbst bleibt in dieser App.</string>
+    <string name="intro">Optionale Begleit-App für Songport. Sie verbindet Dienste ohne offene API (YouTube Music und, experimentell, Amazon Music) über dieselbe Web-Oberfläche, die auch ihre Player nutzen, sodass du keine Entwicklerschlüssel brauchst. Songport erhält nur deine Playlists und Titel; die Anmeldungen selbst bleiben in dieser App.</string>
+    <string name="ytm_title">YouTube Music</string>
+    <string name="amazon_title">Amazon Music (experimentell)</string>
+    <string name="amazon_intro">Auch Amazon Music hat keine offene API, und die offizielle ist zugelassenen Partnern vorbehalten. Dieser Connector nutzt die Oberfläche des Web-Players und ist noch nicht fertig: Melde dich an, führe den Verbindungstest aus und nutze dann die Traffic-Aufzeichnung, damit die fehlenden Teile am echten Protokoll fertiggestellt werden können.</string>
+    <string name="amazon_connect">Bei Amazon anmelden</string>
+    <string name="amazon_test">Verbindung testen</string>
+    <string name="amazon_test_running">Test läuft…</string>
+    <string name="amazon_test_ok">Verbunden als %1$s. Die Testsuche lieferte %2$d Titel.</string>
+    <string name="amazon_test_fail">Test fehlgeschlagen: %1$s</string>
+    <string name="amazon_capture">Traffic aufzeichnen</string>
+    <string name="amazon_capture_intro">Nutze Amazon Music hier ganz normal: Öffne Bibliothek → Playlists, öffne eine deiner Playlists, erstelle eine Playlist, füge ihr einen Titel hinzu, entferne ihn, suche nach einem Titel. Jeder Aufruf des Players wird ohne Cookies oder Tokens in eine Datei auf diesem Telefon geschrieben. Tippe danach auf Teilen und schicke die Datei an den Entwickler.</string>
+    <string name="amazon_capture_share">Teilen</string>
+    <string name="amazon_capture_clear">Leeren</string>
+    <string name="amazon_capture_count">%1$d Aufrufe aufgezeichnet</string>
     <string name="warning_title">Bitte zuerst lesen</string>
     <string name="warning_body">Dies ist keine offizielle Google-API. Ihre Nutzung verstößt gegen die YouTube-Nutzungsbedingungen, sie kann jederzeit aufhören zu funktionieren, wenn Google etwas ändert, und im schlimmsten Fall könnte Google das Konto einschränken, mit dem du dich anmeldest. Nutze sie auf eigenes Risiko, am besten mit einem Konto, dessen Verlust du verkraften kannst. Der offizielle Weg (dein eigener Google Cloud-Schlüssel) bleibt in Songport verfügbar.</string>
     <string name="status_connected">Verbunden als %1$s</string>

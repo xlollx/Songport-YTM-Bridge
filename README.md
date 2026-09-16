@@ -33,6 +33,17 @@ user's own Google Cloud key).
 
 No quota, no Google Cloud project, no developer key.
 
+### Amazon Music (experimental)
+
+Amazon's official Web API is a closed beta reserved to approved partners, so the same approach is
+used: sign in on the regional web player (music.amazon.it, music.amazon.de, ...) inside a WebView,
+then call the endpoints the player itself uses (`*.mesk.skill.music.a2z.com/api/<method>`, with the
+`x-amzn-*` headers derived from `config.json`). Catalog search (`searchCatalogTracks`) and playlist
+lookup (`showLibraryPlaylist`) are implemented. The library listing and the write methods (create,
+add, remove) are being mapped from captured traffic: the app has a "Capture traffic" screen that
+mirrors the player's API calls into a local file, with cookies and tokens stripped, which the user can
+share to help finish the connector. Nothing is exposed to Songport yet.
+
 ## Security model
 
 - The provider is exported, but **every call verifies the caller**: package name
