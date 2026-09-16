@@ -13,9 +13,6 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 
-# WebView: i metodi annotati @JavascriptInterface (login Apple Music) vengono chiamati per nome
-# dal JavaScript della pagina; se R8 li rinomina il login si rompe solo in release.
--keepclassmembers class * {
-    @android.webkit.JavascriptInterface <methods>;
-}
--keepattributes JavascriptInterface
+# Tink (security-crypto) references compile-only Error Prone annotations that are not packaged.
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
