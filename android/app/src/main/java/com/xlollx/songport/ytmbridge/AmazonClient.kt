@@ -151,7 +151,7 @@ class AmazonClient(private val ctx: Context) {
             val artist = item["secondaryText"].str ?: item["secondaryText"]["text"].str ?: ""
             val album = item["secondaryText2"].str ?: item["secondaryText2"]["text"].str
             val dur = item["secondaryText3"].str ?: item["secondaryText3"]["text"].str
-            out += TrackDto(id, title, if (artist.isBlank()) emptyList() else listOf(artist), album, parseDuration(dur), null)
+            out += TrackDto(id, title, if (artist.isBlank()) emptyList() else listOf(artist), album ?: "", parseDuration(dur), null)
         }
         return out.distinctBy { it.id }
     }
