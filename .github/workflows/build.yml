@@ -1,7 +1,9 @@
 name: Build
 
-# Builds the Bridge on every push, pull request and by hand. A tag v* also publishes the signed
+# Builds the Bridge on every push, pull request and by hand. When the versionName in
+# app/build.gradle has no matching tag yet, a push to main creates the tag and publishes the signed
 # release APK as a GitHub Release (the Bridge is distributed only here, never on Google Play).
+# Pushing a tag v* by hand publishes a release for that tag too.
 on:
   push:
     branches: [ main ]
@@ -86,13 +88,31 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Name release asset after the tag
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && env.UPLOAD_KEYSTORE_BASE64 != '' }}
-        run: cp android/app/build/outputs/apk/release/app-release.apk "SongportYtmBridge-${GITHUB_REF_NAME}.apk"
+      - name: Decide whether to publish a release
+        id: rel
+        if: ${{ github.event_name == 'push' && env.UPLOAD_KEYSTORE_BASE64 != '' }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          v=$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -1)
+          if [ -z "$v" ]; then echo "versionName not found"; exit 1; fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$v" >/dev/null; then
+            echo "Tag v$v already exists: nothing to publish."
+          else
+            echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: GitHub Release (tags only)
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && env.UPLOAD_KEYSTORE_BASE64 != '' }}
+      - name: Name release asset after the version
+        if: ${{ steps.rel.outputs.tag != '' }}
+        run: cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/SongportYtmBridge-${{ steps.rel.outputs.tag }}.apk"
+
+      - name: GitHub Release
+        if: ${{ steps.rel.outputs.tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.rel.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: SongportYtmBridge-*.apk
           generate_release_notes: true

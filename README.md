@@ -65,7 +65,8 @@ gradle assembleDebug          # APK in app/build/outputs/apk/debug/
 
 GitHub Actions builds every push. With the `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`,
 `UPLOAD_KEY_ALIAS` and `UPLOAD_KEY_PASSWORD` secrets it also produces the signed release APK, and a
-tag `v*` publishes it as a GitHub Release.
+push to `main` whose `versionName` in `app/build.gradle` has no tag yet creates the tag and publishes
+the APK as a GitHub Release. To release, bump `versionCode` and `versionName` and push.
 
 ## When it breaks
 
