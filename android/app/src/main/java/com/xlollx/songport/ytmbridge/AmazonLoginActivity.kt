@@ -92,11 +92,17 @@ class AmazonLoginActivity : ComponentActivity() {
     private fun capture(manual: Boolean = false) {
         if (done) return
         val cm = CookieManager.getInstance()
+        val app = applicationContext
         // Amazon sends every account to its own regional site, and the sign-in itself happens on
-        // amazon.<tld>, not on the music one: the domain to keep is the one whose cookie jar really
-        // holds the token, starting from the site the player is showing right now.
+        // amazon.<tld>, not on the music one: an Italian account signed in through music.amazon.com
+        // leaves a token on .amazon.com while the player it is then sent to, music.amazon.it, still
+        // has to complete its own hop. So the site kept is the one the player is actually running
+        // on: where its headers were seen, or the music page on screen once its jar holds the token.
+        // Only Done, pressed by the user, falls back to any signed-in Amazon domain.
         val current = Uri.parse(web.url ?: "").host?.takeIf { AmazonClient.isMusicDomain(it) }
-        val hit = (listOfNotNull(current) + AmazonClient.DOMAINS.keys).distinct()
+        val candidates = listOfNotNull(AmazonSession.headersHost(app).takeIf { AmazonBridge.ready(app) }, current) +
+            (if (manual) AmazonClient.DOMAINS.keys else emptyList())
+        val hit = candidates.distinct()
             .map { it to cm.getCookie("https://$it") }
             .firstOrNull { (_, ck) -> AmazonSession.looksSignedIn(ck) }
         if (hit == null) {
@@ -106,7 +112,6 @@ class AmazonLoginActivity : ComponentActivity() {
         val host = hit.first
         val cookies = hit.second ?: return
         done = true
-        val app = applicationContext
         AmazonSession.save(app, cookies, host, null)
         AmazonClient.forgetConfig()
         // The display name comes from the player configuration; a failure here is not a failed login.
@@ -119,7 +124,8 @@ class AmazonLoginActivity : ComponentActivity() {
         // rather than closing on the cookies and failing at the first request. Done leaves at once.
         if (AmazonBridge.ready(app)) { leave(); return }
         hintView.text = getString(R.string.login_finishing)
-        if (AmazonClient.isMusicDomain(Uri.parse(web.url ?: "").host)) web.reload() else web.loadUrl("https://$host/")
+        // On the player's page already: let it boot, its first call is what we are waiting for.
+        if (current == null) web.loadUrl("https://$host/")
         val deadline = System.currentTimeMillis() + WAIT_MS
         handler.postDelayed(object : Runnable {
             override fun run() {

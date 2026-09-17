@@ -42,16 +42,19 @@ object AmazonSession {
      * The API headers of the player, captured while it was running, kept encrypted next to the
      * session. They carry an access token, so they live here and are never handed to Songport.
      */
-    fun saveHeaders(ctx: Context, headers: String, userAgent: String?) {
+    fun saveHeaders(ctx: Context, headers: String, userAgent: String?, host: String?) {
         prefs(ctx).edit()
             .putString("headers", headers)
             .putString("headers_ua", userAgent)
+            .putString("headers_host", host?.takeIf { AmazonClient.isMusicDomain(it) })
             .putLong("headers_at", System.currentTimeMillis())
             .apply()
     }
 
     fun headers(ctx: Context): String? = prefs(ctx).getString("headers", null)
     fun headersUserAgent(ctx: Context): String? = prefs(ctx).getString("headers_ua", null)
+    /** The player page the headers were seen on: the account's real regional site. */
+    fun headersHost(ctx: Context): String? = prefs(ctx).getString("headers_host", null)
     fun headersAt(ctx: Context): Long = prefs(ctx).getLong("headers_at", 0)
 
     /** Forgets the session here and the Amazon cookies in the WebView. */

@@ -55,9 +55,9 @@ object AmazonBridge {
      * Stores headers seen in a visible WebView (sign-in, traffic capture). Called from JavaScript,
      * so it accepts whatever arrives and simply ignores anything without a token.
      */
-    fun remember(ctx: Context, headersJson: String, userAgent: String?) {
+    fun remember(ctx: Context, headersJson: String, userAgent: String?, host: String?) {
         val map = headersOf(headersJson) ?: return
-        AmazonSession.saveHeaders(ctx.applicationContext, headersJson, userAgent)
+        AmazonSession.saveHeaders(ctx.applicationContext, headersJson, userAgent, host)
         cached = Player(map, null, userAgent, System.currentTimeMillis())
     }
 
@@ -72,7 +72,7 @@ object AmazonBridge {
         val app = ctx.applicationContext
         web.addJavascriptInterface(object {
             @JavascriptInterface
-            fun headers(json: String, ua: String?) { remember(app, json, ua) }
+            fun headers(json: String, ua: String?, host: String?) { remember(app, json, ua, host) }
             @JavascriptInterface
             fun config(json: String, ua: String?) { }
         }, "AmzBridge")
@@ -125,10 +125,10 @@ object AmazonBridge {
 
         val sink = object {
             @JavascriptInterface
-            fun headers(json: String, ua: String?) {
+            fun headers(json: String, ua: String?, host: String?) {
                 calls.incrementAndGet()
                 val map = headersOf(json) ?: return
-                AmazonSession.saveHeaders(app, json, ua)
+                AmazonSession.saveHeaders(app, json, ua, host)
                 headers.set(map)
                 userAgent.set(ua)
                 latch.countDown()
@@ -160,6 +160,8 @@ object AmazonBridge {
                     override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                         lastUrl.set(url ?: "")
                         if (!early) view.evaluateJavascript(HOOK, null)
+                        // Sent to the sign-in page: the cookies no longer open the player. No point waiting.
+                        if (url != null && url.contains("/ap/signin")) { problem.compareAndSet(null, SIGN_IN_AGAIN); latch.countDown() }
                     }
                     override fun onPageFinished(view: WebView, url: String) {
                         lastUrl.set(url)
@@ -170,7 +172,7 @@ object AmazonBridge {
                         if (req.isForMainFrame) problem.compareAndSet(null, "page error ${err.errorCode}")
                     }
                 }
-                w.loadUrl("https://$domain/")
+                w.loadUrl("https://${AmazonSession.headersHost(app) ?: domain}/")
                 // The configuration is worth asking for even if the page never reports itself finished.
                 listOf(5_000L, 12_000L, 25_000L, 40_000L).forEach { at ->
                     main.postDelayed({ runCatching { web?.evaluateJavascript(CONFIG, null) } }, at)
@@ -185,6 +187,9 @@ object AmazonBridge {
 
         val h = headers.get()
         val c = config.get()
+        if (h == null && problem.get() == SIGN_IN_AGAIN) throw BridgeException(
+            "the Amazon session no longer opens the player (it asked to sign in again). Open Songport Bridge, sign out of Amazon and sign in again.",
+        )
         if (h == null && c == null) throw BridgeException(
             "the Amazon Music player did not hand over its credentials in time" +
                 " [url: ${lastUrl.get().take(80).ifBlank { "none" }}" +
@@ -197,6 +202,7 @@ object AmazonBridge {
 
     private const val VIEW_W = 1280
     private const val VIEW_H = 2000
+    private const val SIGN_IN_AGAIN = "sign-in page
 
     /**
      * Mirrors the `x-amzn-*` headers of the player's own API calls. They are not HTTP headers: the
@@ -213,7 +219,7 @@ object AmazonBridge {
               var j = JSON.parse(b);
               if (!j || !j.headers) return;
               var h = (typeof j.headers === 'string') ? j.headers : JSON.stringify(j.headers);
-              AmzBridge.headers(h, navigator.userAgent);
+              AmzBridge.headers(h, navigator.userAgent, location.host);
             } catch(e){}
           };
           var of = window.fetch;
