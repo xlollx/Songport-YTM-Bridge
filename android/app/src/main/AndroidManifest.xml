@@ -46,6 +46,9 @@
 
         <!-- Amazon Music (experimental): sign-in on music.amazon.*, started by Songport with the action below. -->
         <activity
+            android:name=".VerifyActivity"
+            android:exported="false" />
+        <activity
             android:name=".AmazonLoginActivity"
             android:exported="true"
             android:label="@string/amazon_title">

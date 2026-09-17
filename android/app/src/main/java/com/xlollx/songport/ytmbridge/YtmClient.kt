@@ -92,6 +92,9 @@ class YtmClient(private val ctx: Context) {
             val (code, text) = if (r != null) r.code to r.body else http.newCall(req).execute().use { resp -> resp.code to (resp.body?.string() ?: "") }
             run {
                 Stats.record(auth, code, System.currentTimeMillis() - t0, text, viaWeb && r != null)
+                // Google's abuse page: the browser was redirected to it. That address, opened by the user
+                // in a visible WebView, lets them pass the verification that lifts the block.
+                if ((code == 403 || code == 429) && text.contains("<title>Sorry", true)) Verification.noticed(ctx, r?.url)
                 when {
                     code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
                     code == 403 || code == 429 -> {
@@ -105,10 +108,11 @@ class YtmClient(private val ctx: Context) {
                             val reason = Regex(""""message"\s*:\s*"([^"]{1,160})"""").find(text)?.groupValues?.get(1)
                                 ?: if (text.contains("<title>Sorry", true)) "Google's abuse detection page" else text.replace(Regex("\\s+"), " ").trim().take(120).ifBlank { null }
                             val who = if (auth) "signed-in" else "anonymous"
+                            val advice = if (Verification.pending(ctx)) "Google asks for a verification: open Songport Bridge and tap \"Verify with Google\""
+                                else "Songport will wait and retry; if it persists, sign in again in Songport Bridge"
                             throw Throttled(
                                 "YouTube Music refused the $who request ($code): too many requests" +
-                                    (reason?.let { " [$it]" } ?: "") +
-                                    ". Songport will wait and retry; if it persists, sign in again in Songport Bridge",
+                                    (reason?.let { " [$it]" } ?: "") + ". " + advice,
                             )
                         }
                     }
@@ -184,6 +188,34 @@ class YtmClient(private val ctx: Context) {
         }
     }
 
+    /**
+     * Google's "Sorry..." block on this address. The page is a captcha: once a person passes it in a
+     * browser with the same cookie jar, Google sets an exemption cookie and the calls flow again.
+     */
+    object Verification {
+        // Kept in plain preferences too (an address and a time, nothing secret): the block outlives
+        // this process, so the button must still be there after the app is reopened.
+        private fun prefs(ctx: Context) = ctx.applicationContext.getSharedPreferences("ytm_verification", Context.MODE_PRIVATE)
+        @Volatile private var url: String? = null
+        @Volatile private var at = 0L
+
+        fun noticed(ctx: Context, sorryUrl: String?) {
+            at = System.currentTimeMillis()
+            // The address of the page itself, when the browser followed a redirect to it.
+            if (sorryUrl != null && sorryUrl.contains("/sorry/")) url = sorryUrl
+            prefs(ctx).edit().putLong("at", at).putString("url", url).apply()
+        }
+        /** True while blocks were seen in the last ten minutes. */
+        fun pending(ctx: Context? = null): Boolean {
+            val seen = if (ctx != null) prefs(ctx).getLong("at", at) else at
+            return System.currentTimeMillis() - seen < 10 * 60_000
+        }
+        /** Where to send the user: the page Google redirected to, or YouTube's generic one. */
+        fun page(ctx: Context): String = (url ?: prefs(ctx).getString("url", null))
+            ?: "https://www.youtube.com/sorry/index?continue=${URLEncoder.encode("${Session.ORIGIN}/", "UTF-8")}"
+        fun passed(ctx: Context) { url = null; at = 0L; prefs(ctx).edit().clear().apply() }
+    }
+
     /** Counters for the diagnostics report: what the two routes are doing, nothing about content. */
     object Stats {
         private var calls = 0; private var ok = 0; private var refusedAnon = 0; private var refusedAuth = 0; private var viaWeb = 0
@@ -207,6 +239,7 @@ class YtmClient(private val ctx: Context) {
                 "refused anonymous $refusedAnon" + (lastAnon?.let { " (last: $it)" } ?: "") +
                 ", refused signed-in $refusedAuth" + (lastAuth?.let { " (last: $it)" } ?: "") +
                 ", pace anonymous ${ANON_LANE.current} ms, pace signed-in ${SESSION_LANE.current} ms" +
+                (if (Verification.pending()) ", verification pending" else "") +
                 (if (System.currentTimeMillis() - anonRefusedAt < ANON_COOLDOWN_MS) ", anonymous route cooling down" else "")
     }
 

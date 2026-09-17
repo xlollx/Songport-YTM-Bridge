@@ -35,6 +35,8 @@
     <string name="language_system">Systemsprache</string>
     <string name="warning_title">Bitte zuerst lesen</string>
     <string name="warning_body">Dies ist keine offizielle Google-API. Ihre Nutzung verstößt gegen die YouTube-Nutzungsbedingungen, sie kann jederzeit aufhören zu funktionieren, wenn Google etwas ändert, und im schlimmsten Fall könnte Google das Konto einschränken, mit dem du dich anmeldest. Nutze sie auf eigenes Risiko, am besten mit einem Konto, dessen Verlust du verkraften kannst. Der offizielle Weg (dein eigener Google Cloud-Schlüssel) bleibt in Songport verfügbar.</string>
+    <string name="verify_google">Google-Überprüfung</string>
+    <string name="verify_hint">Google hat die Netzadresse dieses Telefons wegen ungewöhnlichen Verkehrs markiert und verlangt eine Überprüfung. Schließe sie hier einmal ab: danach laufen die Synchronisierungen wieder.</string>
     <string name="status_connected">Verbunden als %1$s</string>
     <string name="status_connected_plain">Verbunden</string>
     <string name="status_disconnected">Nicht verbunden</string>

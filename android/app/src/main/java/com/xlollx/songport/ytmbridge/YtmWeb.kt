@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong
  * in flight. Callers block, so this is never used on the main thread.
  */
 object YtmWeb {
-    class Response(val code: Int, val body: String)
+    class Response(val code: Int, val body: String, val url: String)
 
     private const val PAGE = "${Session.ORIGIN}/robots.txt"
     private const val INIT_TIMEOUT_S = 20L
@@ -58,7 +58,7 @@ object YtmWeb {
         val script = """
             (function(){
               fetch(${js(path)}, {method: 'POST', credentials: ${if (credentials) "'include'" else "'omit'"}, headers: ${headersJs(headers)}, body: ${js(body)}})
-                .then(function(r){ return r.text().then(function(t){ YtmWeb.done(${js(id)}, r.status, t); }); })
+                .then(function(r){ return r.text().then(function(t){ YtmWeb.done(${js(id)}, r.status, t, String(r.url || '')); }); })
                 .catch(function(e){ YtmWeb.fail(${js(id)}, String(e)); });
             })();
         """.trimIndent()
@@ -76,7 +76,7 @@ object YtmWeb {
 
     private val sink = object {
         @JavascriptInterface
-        fun done(id: String, status: Int, text: String) { pending[id]?.complete(Response(status, text)) }
+        fun done(id: String, status: Int, text: String, url: String) { pending[id]?.complete(Response(status, text, url)) }
         @JavascriptInterface
         fun fail(id: String, message: String) { pending[id]?.completeExceptionally(RuntimeException(message)) }
     }

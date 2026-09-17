@@ -108,6 +108,11 @@ private fun Screen() {
                         Button(onClick = { login.launch(Intent(ctx, LoginActivity::class.java)) }) { Text(stringResource(R.string.connect)) }
                     }
                 }
+                // Google's abuse page seen recently: only the user can pass its captcha.
+                if (remember(version) { YtmClient.Verification.pending(ctx) }) {
+                    Text(stringResource(R.string.verify_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { login.launch(Intent(ctx, VerifyActivity::class.java)) }) { Text(stringResource(R.string.verify_google)) }
+                }
             }
         }
 

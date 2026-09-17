@@ -35,6 +35,8 @@
     <string name="language_system">System language</string>
     <string name="warning_title">Read this first</string>
     <string name="warning_body">This is not an official Google API. Using it is against the YouTube Terms of Service, it can stop working whenever Google changes something, and in the worst case Google could restrict the account you sign in with. Use it at your own risk, ideally with an account you can afford to lose. The official route (your own Google Cloud key) remains available in Songport.</string>
+    <string name="verify_google">Verify with Google</string>
+    <string name="verify_hint">Google has flagged this phone\'s network address for unusual traffic and asks for a verification. Complete it here once: afterwards the syncs flow again.</string>
     <string name="status_connected">Connected as %1$s</string>
     <string name="status_connected_plain">Connected</string>
     <string name="status_disconnected">Not connected</string>
