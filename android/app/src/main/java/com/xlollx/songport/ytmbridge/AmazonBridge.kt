@@ -114,11 +114,11 @@ object AmazonBridge {
     private fun capture(app: Context, domain: String): Player {
         val latch = CountDownLatch(1)
         // Written from the WebView thread, read here: atomic holders, not plain locals.
-        val headers = AtomicReference<Map<String, String>>(null)
-        val config = AtomicReference<JsonObject>(null)
-        val userAgent = AtomicReference<String>(null)
+        val headers = AtomicReference<Map<String, String>?>(null)
+        val config = AtomicReference<JsonObject?>(null)
+        val userAgent = AtomicReference<String?>(null)
         val lastUrl = AtomicReference("")
-        val problem = AtomicReference<String>(null)
+        val problem = AtomicReference<String?>(null)
         val calls = AtomicInteger(0)
         var web: WebView? = null
         val main = Handler(Looper.getMainLooper())
