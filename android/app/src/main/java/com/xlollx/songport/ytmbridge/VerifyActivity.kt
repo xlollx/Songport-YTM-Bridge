@@ -40,7 +40,7 @@ class VerifyActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 // Past the captcha Google follows the "continue" address: the block is lifted.
                 val host = Uri.parse(url).host ?: return
-                if (host.endsWith("youtube.com") && !url.contains("/sorry/")) {
+                if (host.endsWith("youtube.com") && !url.contains("/sorry/") && !url.startsWith("data:")) {
                     CookieManager.getInstance().flush()
                     YtmClient.Verification.passed(applicationContext)
                     finish()
@@ -48,7 +48,11 @@ class VerifyActivity : ComponentActivity() {
             }
         }
         onBackPressedDispatcher.addCallback(this) { if (web.canGoBack()) web.goBack() else finish() }
-        web.loadUrl(YtmClient.Verification.page(applicationContext))
+        // Google's page as it came back to the engine. If it carries a captcha its form posts to the
+        // same host; if it only announces the block, the person at least reads Google's own words.
+        val html = YtmClient.Verification.html(applicationContext)
+        if (html != null) web.loadDataWithBaseURL("${Session.ORIGIN}/sorry/index", html, "text/html", "utf-8", null)
+        else web.loadUrl("${Session.ORIGIN}/")
     }
 
     override fun onDestroy() {

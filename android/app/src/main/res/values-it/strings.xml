@@ -35,8 +35,8 @@
     <string name="language_system">Lingua di sistema</string>
     <string name="warning_title">Leggi prima di continuare</string>
     <string name="warning_body">Questa non è un\'API ufficiale di Google. Usarla è contrario ai Termini di servizio di YouTube, può smettere di funzionare quando Google cambia qualcosa e, nel caso peggiore, Google potrebbe limitare l\'account con cui accedi. Usala a tuo rischio, meglio con un account che puoi permetterti di perdere. La strada ufficiale (una tua chiave Google Cloud) resta disponibile in Songport.</string>
-    <string name="verify_google">Verifica con Google</string>
-    <string name="verify_hint">Google ha segnalato l\'indirizzo di rete di questo telefono per traffico insolito e chiede una verifica. Completala qui una volta: poi le sincronizzazioni riprendono a scorrere.</string>
+    <string name="verify_google">Cosa dice Google</string>
+    <string name="verify_hint">Google ha bloccato l\'indirizzo di rete di questo telefono per traffico insolito. Il blocco scade da solo qualche minuto dopo che le richieste si fermano: il Bridge sospende tutte le chiamate a YouTube Music e dice a Songport quanto aspettare. Se la pagina di Google offre una verifica, completarla qui toglie il blocco subito.</string>
     <string name="status_connected">Collegato come %1$s</string>
     <string name="status_connected_plain">Collegato</string>
     <string name="status_disconnected">Non collegato</string>

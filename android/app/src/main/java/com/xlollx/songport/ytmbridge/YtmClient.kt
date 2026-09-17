@@ -83,6 +83,12 @@ class YtmClient(private val ctx: Context) {
         var attempt = 0
         val lane = if (auth) SESSION_LANE else ANON_LANE
         while (true) {
+            // Google's block lifts only when the requests stop: while it lasts nothing goes out, and
+            // Songport is told exactly how long to wait.
+            val blocked = Verification.remainingSeconds(ctx)
+            if (blocked > 0) throw Throttled(
+                "YouTube Music is blocked by Google's abuse page for this network address; it lifts only if requests stop. Retry in $blocked s",
+            )
             lane.pace()
             val t0 = System.currentTimeMillis()
             // Chrome's fingerprint through the WebView keeps Google's abuse page away; plain HTTP is
@@ -94,7 +100,7 @@ class YtmClient(private val ctx: Context) {
                 Stats.record(auth, code, System.currentTimeMillis() - t0, text, viaWeb && r != null)
                 // Google's abuse page: the browser was redirected to it. That address, opened by the user
                 // in a visible WebView, lets them pass the verification that lifts the block.
-                if ((code == 403 || code == 429) && text.contains("<title>Sorry", true)) Verification.noticed(ctx, r?.url)
+                if ((code == 403 || code == 429) && text.contains("<title>Sorry", true)) Verification.noticed(ctx, text)
                 when {
                     code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
                     code == 403 || code == 429 -> {
@@ -108,7 +114,7 @@ class YtmClient(private val ctx: Context) {
                             val reason = Regex(""""message"\s*:\s*"([^"]{1,160})"""").find(text)?.groupValues?.get(1)
                                 ?: if (text.contains("<title>Sorry", true)) "Google's abuse detection page" else text.replace(Regex("\\s+"), " ").trim().take(120).ifBlank { null }
                             val who = if (auth) "signed-in" else "anonymous"
-                            val advice = if (Verification.pending(ctx)) "Google asks for a verification: open Songport Bridge and tap \"Verify with Google\""
+                            val advice = if (Verification.pending(ctx)) "Google blocked this network address; it lifts only if requests stop. Retry in ${Verification.remainingSeconds(ctx)} s"
                                 else "Songport will wait and retry; if it persists, sign in again in Songport Bridge"
                             throw Throttled(
                                 "YouTube Music refused the $who request ($code): too many requests" +
@@ -193,27 +199,42 @@ class YtmClient(private val ctx: Context) {
      * browser with the same cookie jar, Google sets an exemption cookie and the calls flow again.
      */
     object Verification {
-        // Kept in plain preferences too (an address and a time, nothing secret): the block outlives
-        // this process, so the button must still be there after the app is reopened.
+        // Kept in plain preferences too (a time and Google's page, nothing secret): the block outlives
+        // this process, so the button and the pause must still be there after the app is reopened.
         private fun prefs(ctx: Context) = ctx.applicationContext.getSharedPreferences("ytm_verification", Context.MODE_PRIVATE)
-        @Volatile private var url: String? = null
-        @Volatile private var at = 0L
+        @Volatile private var blockedUntil = 0L
+        @Volatile private var lastSeen = 0L
+        @Volatile private var level = 0
 
-        fun noticed(ctx: Context, sorryUrl: String?) {
-            at = System.currentTimeMillis()
-            // The address of the page itself, when the browser followed a redirect to it.
-            if (sorryUrl != null && sorryUrl.contains("/sorry/")) url = sorryUrl
-            prefs(ctx).edit().putLong("at", at).putString("url", url).apply()
+        /**
+         * Google's page says it plainly: "the block will expire shortly after those requests stop".
+         * So every request during the block prolongs it. On each page seen, all YouTube Music calls
+         * stop for a window that doubles each time (3, 6, 12, 24 minutes) and Songport is told how
+         * long; a quiet half hour resets the ladder.
+         */
+        fun noticed(ctx: Context, html: String) {
+            val now = System.currentTimeMillis()
+            if (now - lastSeen > 30 * 60_000) level = 0
+            level = (level + 1).coerceAtMost(4)
+            lastSeen = now
+            blockedUntil = now + (3 shl (level - 1)) * 60_000L
+            prefs(ctx).edit().putLong("until", blockedUntil).putLong("seen", lastSeen).putInt("level", level).putString("html", html.take(60_000)).apply()
         }
+
+        private fun load(ctx: Context) {
+            if (lastSeen == 0L) {
+                val p = prefs(ctx)
+                blockedUntil = p.getLong("until", 0); lastSeen = p.getLong("seen", 0); level = p.getInt("level", 0)
+            }
+        }
+
+        /** Seconds still to wait before YouTube Music may be called again; 0 when free. */
+        fun remainingSeconds(ctx: Context): Long { load(ctx); return ((blockedUntil - System.currentTimeMillis()) / 1000).coerceAtLeast(0) }
         /** True while blocks were seen in the last ten minutes. */
-        fun pending(ctx: Context? = null): Boolean {
-            val seen = if (ctx != null) prefs(ctx).getLong("at", at) else at
-            return System.currentTimeMillis() - seen < 10 * 60_000
-        }
-        /** Where to send the user: the page Google redirected to, or YouTube's generic one. */
-        fun page(ctx: Context): String = (url ?: prefs(ctx).getString("url", null))
-            ?: "https://www.youtube.com/sorry/index?continue=${URLEncoder.encode("${Session.ORIGIN}/", "UTF-8")}"
-        fun passed(ctx: Context) { url = null; at = 0L; prefs(ctx).edit().clear().apply() }
+        fun pending(ctx: Context? = null): Boolean { ctx?.let { load(it) }; return System.currentTimeMillis() - lastSeen < 10 * 60_000 }
+        /** Google's own page, as it came back, to show the person what Google says. */
+        fun html(ctx: Context): String? = prefs(ctx).getString("html", null)
+        fun passed(ctx: Context) { blockedUntil = 0L; lastSeen = 0L; level = 0; prefs(ctx).edit().clear().apply() }
     }
 
     /** Counters for the diagnostics report: what the two routes are doing, nothing about content. */
@@ -239,7 +260,7 @@ class YtmClient(private val ctx: Context) {
                 "refused anonymous $refusedAnon" + (lastAnon?.let { " (last: $it)" } ?: "") +
                 ", refused signed-in $refusedAuth" + (lastAuth?.let { " (last: $it)" } ?: "") +
                 ", pace anonymous ${ANON_LANE.current} ms, pace signed-in ${SESSION_LANE.current} ms" +
-                (if (Verification.pending()) ", verification pending" else "") +
+                (if (Verification.pending()) ", Google block seen recently" else "") +
                 (if (System.currentTimeMillis() - anonRefusedAt < ANON_COOLDOWN_MS) ", anonymous route cooling down" else "")
     }
 
@@ -447,9 +468,9 @@ class YtmClient(private val ctx: Context) {
         /** Songport's id for "Liked songs"; maps to the LM playlist here. */
         const val LIKED = "__liked__"
         /** Signed-in calls: what a person clicking around the player would produce. */
-        private val SESSION_LANE = Lane(700, 4_000)
+        private val SESSION_LANE = Lane(1_500, 6_000)
         /** Anonymous searches: several a second are fine, Songport also runs a few in parallel. */
-        private val ANON_LANE = Lane(250, 3_000)
+        private val ANON_LANE = Lane(1_000, 6_000)
         @Volatile private var anonRefusedAt = 0L
         private const val ANON_COOLDOWN_MS = 5 * 60_000L
         @Volatile private var cachedVisitor: Visitor? = null
