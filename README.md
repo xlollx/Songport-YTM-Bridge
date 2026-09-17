@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="Songport Bridge">
+</p>
+
 # Songport Bridge
 
 Optional companion app for [Songport](https://github.com/xlollx/Songport). It connects music services
