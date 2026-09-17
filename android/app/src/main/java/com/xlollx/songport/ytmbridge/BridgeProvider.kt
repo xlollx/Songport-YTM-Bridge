@@ -69,7 +69,30 @@ class BridgeProvider : ContentProvider() {
                 "amazon.disconnect" -> { AmazonSession.clear(ctx); Bundle() }
                 "amazon.search" -> ok(json.encodeToString(AmazonClient(ctx).searchTracks(arg ?: "")))
                 "amazon.tracks" -> ok(json.encodeToString(AmazonClient(ctx).playlistTracks(arg ?: return err("missing playlist id"))))
-                "amazon.playlists", "amazon.create", "amazon.add", "amazon.remove" -> err(AMAZON_NOT_READY)
+                "amazon.playlists" -> ok(json.encodeToString(AmazonClient(ctx).libraryPlaylists()))
+                "amazon.create" -> ok(json.encodeToString(AmazonClient(ctx).createPlaylist(extras?.getString("name") ?: "Playlist")))
+                "amazon.add" -> {
+                    val pid = arg ?: return err("missing playlist id")
+                    val ids = extras?.getStringArray("ids") ?: emptyArray()
+                    val titles = extras?.getStringArray("titles") ?: emptyArray()
+                    val pname = extras?.getString("playlistName") ?: ""
+                    val c = AmazonClient(ctx)
+                    ids.forEachIndexed { i, id -> c.addTrack(pid, pname, id, titles.getOrNull(i) ?: ""); Thread.sleep(300) }
+                    Bundle()
+                }
+                "amazon.remove" -> {
+                    val pid = arg ?: return err("missing playlist id")
+                    val ids = extras?.getStringArray("ids") ?: emptyArray()
+                    val entries = extras?.getStringArray("entryIds") ?: emptyArray()
+                    val c = AmazonClient(ctx)
+                    // Entry ids missing (e.g. old cache): look them up from the playlist itself.
+                    val byTrack = if (entries.any { it.isEmpty() }) c.playlistTracks(pid).associate { it.id to (it.setVideoId ?: "") } else emptyMap()
+                    ids.forEachIndexed { i, id ->
+                        val entry = entries.getOrNull(i)?.takeIf { it.isNotEmpty() } ?: byTrack[id] ?: return@forEachIndexed
+                        c.removeTrack(pid, entry, id); Thread.sleep(300)
+                    }
+                    Bundle()
+                }
                 // ---- Spotify web session: Songport gets a short-lived Web API token, never the cookies.
                 "spotify.status" -> Bundle().apply {
                     putBoolean("connected", SpotifyBridge.session.isConnected(ctx))

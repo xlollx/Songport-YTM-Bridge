@@ -51,16 +51,17 @@ offers a shortcut that needs none:
 Both are against the services' terms, like the YouTube Music connector, and the same disclaimer
 applies.
 
-### Amazon Music (experimental)
+### Amazon Music
 
 Amazon's official Web API is a closed beta reserved to approved partners, so the same approach is
 used: sign in on the regional web player (music.amazon.it, music.amazon.de, ...) inside a WebView,
-then call the endpoints the player itself uses (`*.mesk.skill.music.a2z.com/api/<method>`, with the
-`x-amzn-*` headers derived from `config.json`). Catalog search (`searchCatalogTracks`) and playlist
-lookup (`showLibraryPlaylist`) are implemented. The library listing and the write methods (create,
-add, remove) are being mapped from captured traffic: the app has a "Capture traffic" screen that
-mirrors the player's API calls into a local file, with cookies and tokens stripped, which the user can
-share to help finish the connector. Nothing is exposed to Songport yet.
+then call the endpoints the player itself uses (`<region>.web.skill.music.a2z.com/api/<method>`, with
+the `x-amzn-*` headers derived from `config.json`, serialised inside the request body). Methods:
+`showLibraryPlaylists`, `showLibraryPlaylist` (rows carry the entry id needed to remove a track),
+`searchCatalogTracks`, `createPlaylist`, `addTrackToPlaylist`, `removeTrackFromPlaylist`. They were
+mapped from traffic recorded with the app's own "Capture traffic" screen, which mirrors the player's
+API calls into a local file with cookies and tokens stripped; the screen stays available for when
+Amazon changes something.
 
 ## Security model
 
