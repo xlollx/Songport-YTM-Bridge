@@ -79,14 +79,15 @@ class YtmClient(private val ctx: Context) {
         // refusal, and retry once after a short pause. Longer waits are Songport's job, which shows
         // them to the user as a countdown. A 401 is a dead session, no point retrying.
         var attempt = 0
+        val lane = if (auth) SESSION_LANE else ANON_LANE
         while (true) {
-            pace()
+            lane.pace()
             http.newCall(req).execute().use { resp ->
                 val text = resp.body?.string() ?: ""
                 when {
                     resp.code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
                     resp.code == 403 || resp.code == 429 -> {
-                        slowDown()
+                        lane.slowDown()
                         // A refusal can also mean a stale visitor id: refresh it before the retry.
                         invalidateVisitor(auth)
                         if (attempt < 1) { Thread.sleep(3_000); attempt++ }
@@ -102,7 +103,7 @@ class YtmClient(private val ctx: Context) {
                         }
                     }
                     !resp.isSuccessful -> throw BridgeException("YouTube Music ${resp.code}: ${text.take(200)}")
-                    else -> { speedUp(); return parseJson(text) }
+                    else -> { lane.speedUp(); return parseJson(text) }
                 }
             }
         }
@@ -134,19 +135,30 @@ class YtmClient(private val ctx: Context) {
 
     private fun invalidateVisitor(auth: Boolean) { if (auth) cachedVisitor = null else cachedAnonVisitor = null }
 
-    /** Adaptive pacing across the process: slower after every refusal, gently faster after successes. */
-    private fun pace() {
-        synchronized(PACE_LOCK) {
-            val wait = lastCall + paceMs - System.currentTimeMillis()
-            if (wait > 0) Thread.sleep(wait)
-            lastCall = System.currentTimeMillis()
+    /**
+     * Adaptive pacing shared by the whole process, one lane per kind of request: anonymous searches
+     * are limited per address and tolerate a brisk rhythm, signed-in calls count against the account
+     * and are kept gentler. Each lane slows down after every refusal and speeds up again slowly after
+     * a run of successes, never below its floor.
+     */
+    private class Lane(private val floorMs: Long) {
+        private var lastCall = 0L
+        private var paceMs = floorMs
+        private var successes = 0
+
+        fun pace() {
+            synchronized(this) {
+                val wait = lastCall + paceMs - System.currentTimeMillis()
+                if (wait > 0) Thread.sleep(wait)
+                lastCall = System.currentTimeMillis()
+            }
         }
-    }
 
-    private fun slowDown() { synchronized(PACE_LOCK) { paceMs = (paceMs + 1_000).coerceAtMost(6_000); successes = 0 } }
+        fun slowDown() { synchronized(this) { paceMs = (paceMs + 1_000).coerceAtMost(6_000); successes = 0 } }
 
-    private fun speedUp() {
-        synchronized(PACE_LOCK) { if (++successes >= 40) { successes = 0; paceMs = (paceMs - 300).coerceAtLeast(700) } }
+        fun speedUp() {
+            synchronized(this) { if (++successes >= 40) { successes = 0; paceMs = (paceMs - 300).coerceAtLeast(floorMs) } }
+        }
     }
 
     private class Cont(val token: String, val legacy: Boolean)
@@ -348,10 +360,10 @@ class YtmClient(private val ctx: Context) {
     companion object {
         /** Songport's id for "Liked songs"; maps to the LM playlist here. */
         const val LIKED = "__liked__"
-        private val PACE_LOCK = Any()
-        @Volatile private var lastCall = 0L
-        @Volatile private var paceMs = 700L
-        private var successes = 0
+        /** Signed-in calls: what a person clicking around the player would produce. */
+        private val SESSION_LANE = Lane(700)
+        /** Anonymous searches: several a second are fine, Songport also runs a few in parallel. */
+        private val ANON_LANE = Lane(250)
         @Volatile private var cachedVisitor: Visitor? = null
         @Volatile private var cachedAnonVisitor: Visitor? = null
         /** Cookie jar of an anonymous visitor: only the consent choice, no account. */
