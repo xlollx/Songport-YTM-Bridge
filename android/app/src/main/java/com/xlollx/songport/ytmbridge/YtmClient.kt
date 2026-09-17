@@ -54,8 +54,9 @@ class YtmClient(private val ctx: Context) {
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
         // The web interface throttles bursts (403/429 after a few hundred quick searches): pace the
-        // calls and back off a few times before giving up. A 401 is a dead session, no point retrying.
-        val backoff = longArrayOf(3_000, 10_000, 30_000)
+        // calls and retry once after a short pause. Longer waits are Songport's job, which shows them
+        // to the user as a countdown. A 401 is a dead session, no point retrying.
+        val backoff = longArrayOf(3_000)
         var attempt = 0
         while (true) {
             pace()
