@@ -27,7 +27,7 @@
     <string name="apple_intro">Connectez-vous avec votre identifiant Apple sur music.apple.com au lieu de payer l\'Apple Developer Program. Vous saisissez votre mot de passe uniquement sur la page d\'Apple : cette application ne le voit jamais et ne l\'enregistre pas. Seule la session (les cookies) est conservée, chiffrée sur ce téléphone ; Songport ne reçoit que les jetons du lecteur web.</string>
     <string name="apple_connect">Se connecter à Apple Music</string>
     <string name="login_hint">Connectez-vous sur la page du service. Cet écran se ferme tout seul ; sinon, touchez Terminé.</string>
-    <string name="login_finishing">Connexion en cours : laissez cet écran ouvert quelques secondes, le temps que le lecteur démarre.</string>
+    <string name="login_finishing">Presque terminé : le lecteur démarre, laissez cet écran ouvert jusqu\'à ce qu\'il se ferme tout seul. Si le lecteur demande qui écoute, choisissez votre profil.</string>
     <string name="login_done">Terminé</string>
     <string name="login_not_signed_in">Aucune session : terminez d\'abord la connexion sur cette page.</string>
     <string name="language">Langue</string>

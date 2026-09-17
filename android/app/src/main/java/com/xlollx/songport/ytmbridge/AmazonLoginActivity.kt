@@ -29,8 +29,9 @@ class AmazonLoginActivity : ComponentActivity() {
     private lateinit var web: WebView
     private lateinit var hintView: TextView
     private val handler = Handler(Looper.getMainLooper())
-    @Volatile private var done = false
     @Volatile private var left = false
+    /** When the player's page first showed a signed-in cookie jar; 0 while not on the player. */
+    private var signedSince = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,7 +50,7 @@ class AmazonLoginActivity : ComponentActivity() {
         hintView = hint
         val doneButton = Button(this).apply {
             text = getString(R.string.login_done)
-            setOnClickListener { if (done) leave() else capture(manual = true) }
+            setOnClickListener { capture(manual = true) }
         }
         bar.addView(hint); bar.addView(doneButton)
         web = WebView(this).apply {
@@ -84,24 +85,39 @@ class AmazonLoginActivity : ComponentActivity() {
         web.loadUrl(LOGIN_URL)
         // The player is a single page app: navigation does not always report a finished page.
         handler.postDelayed(object : Runnable {
-            override fun run() { if (!done && !isFinishing) { capture(); handler.postDelayed(this, 1500) } }
+            override fun run() { if (!left && !isFinishing) { capture(); handler.postDelayed(this, 1500) } }
         }, 1500)
     }
 
-    /** Stores the session if the cookies are there; with [manual] it also reports when they are not. */
+    /**
+     * Closes the screen with the session once the player has really started for this account.
+     *
+     * Cookies alone are not that signal. Amazon signs you in on amazon.com first, then sends an
+     * Italian account to music.amazon.it, whose own sign-in hop still has to complete: closing on the
+     * first `at-*` cookie kept music.amazon.com, and every later request was sent back to the sign-in
+     * page. What proves the player runs is the set of headers it builds for its first call, seen by
+     * the hook installed in this WebView. So the automatic close waits for those, and only after a
+     * long patience on the player's page, or when the user taps Done, falls back to the cookies.
+     */
     private fun capture(manual: Boolean = false) {
-        if (done) return
+        if (left) return
         val cm = CookieManager.getInstance()
         val app = applicationContext
-        // Amazon sends every account to its own regional site, and the sign-in itself happens on
-        // amazon.<tld>, not on the music one: an Italian account signed in through music.amazon.com
-        // leaves a token on .amazon.com while the player it is then sent to, music.amazon.it, still
-        // has to complete its own hop. So the site kept is the one the player is actually running
-        // on: where its headers were seen, or the music page on screen once its jar holds the token.
-        // Only Done, pressed by the user, falls back to any signed-in Amazon domain.
         val current = Uri.parse(web.url ?: "").host?.takeIf { AmazonClient.isMusicDomain(it) }
-        val candidates = listOfNotNull(AmazonSession.headersHost(app).takeIf { AmazonBridge.ready(app) }, current) +
-            (if (manual) AmazonClient.DOMAINS.keys else emptyList())
+        val ready = AmazonBridge.ready(app)
+
+        if (!manual && !ready) {
+            // On the player's page with a signed-in jar: tell the user why the screen stays, and start
+            // the patience clock. Off the player (a sign-in page again): reset it, the user is typing.
+            val onPlayer = current != null && AmazonSession.looksSignedIn(cm.getCookie("https://$current"))
+            if (!onPlayer) { signedSince = 0L; hintView.text = getString(R.string.login_hint); return }
+            if (signedSince == 0L) { signedSince = System.currentTimeMillis(); hintView.text = getString(R.string.login_finishing) }
+            if (System.currentTimeMillis() - signedSince < PATIENCE_MS) return
+        }
+
+        // The site to keep: where the player's headers were seen, else the player page on screen;
+        // any signed-in Amazon domain only as a last resort (Done, or patience over).
+        val candidates = listOfNotNull(AmazonSession.headersHost(app).takeIf { ready }, current) + AmazonClient.DOMAINS.keys
         val hit = candidates.distinct()
             .map { it to cm.getCookie("https://$it") }
             .firstOrNull { (_, ck) -> AmazonSession.looksSignedIn(ck) }
@@ -111,7 +127,6 @@ class AmazonLoginActivity : ComponentActivity() {
         }
         val host = hit.first
         val cookies = hit.second ?: return
-        done = true
         AmazonSession.save(app, cookies, host, null)
         AmazonClient.forgetConfig()
         // The display name comes from the player configuration; a failure here is not a failed login.
@@ -119,21 +134,7 @@ class AmazonLoginActivity : ComponentActivity() {
             val name = runCatching { AmazonClient(app).config(host, cookies).customerName }.getOrNull()
             if (name != null) AmazonSession.save(app, cookies, host, name)
         }
-        // Cookies alone are not enough: Amazon gives an access token only to the running player, and
-        // the player only runs here. So stay a few seconds on its page until the hook has seen a call,
-        // rather than closing on the cookies and failing at the first request. Done leaves at once.
-        if (AmazonBridge.ready(app)) { leave(); return }
-        hintView.text = getString(R.string.login_finishing)
-        // On the player's page already: let it boot, its first call is what we are waiting for.
-        if (current == null) web.loadUrl("https://$host/")
-        val deadline = System.currentTimeMillis() + WAIT_MS
-        handler.postDelayed(object : Runnable {
-            override fun run() {
-                if (left || isFinishing) return
-                if (AmazonBridge.ready(app) || System.currentTimeMillis() > deadline) leave()
-                else handler.postDelayed(this, 1000)
-            }
-        }, 1000)
+        leave()
     }
 
     private fun leave() {
@@ -152,7 +153,7 @@ class AmazonLoginActivity : ComponentActivity() {
     companion object {
         const val ACTION = "com.xlollx.songport.ytmbridge.AMAZON_LOGIN"
         private const val LOGIN_URL = "https://music.amazon.com/"
-        /** How long to wait for the player to make its first call once signed in. */
-        private const val WAIT_MS = 25_000L
+        /** How long to stay on the player's page waiting for its first call before settling for the cookies. */
+        private const val PATIENCE_MS = 60_000L
     }
 }

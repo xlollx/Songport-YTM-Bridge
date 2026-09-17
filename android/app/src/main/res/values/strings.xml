@@ -27,7 +27,7 @@
     <string name="apple_intro">Sign in with your Apple ID on music.apple.com instead of paying for the Apple Developer Program. You type your password only on Apple\'s page: this app never sees or stores it. What is kept is the session (cookies), encrypted on this phone; Songport only receives the web player\'s tokens.</string>
     <string name="apple_connect">Sign in to Apple Music</string>
     <string name="login_hint">Sign in on the service\'s page. This screen closes on its own; if it does not, tap Done.</string>
-    <string name="login_finishing">Finishing the connection: leave this screen open for a few seconds while the player starts.</string>
+    <string name="login_finishing">Almost done: the player is starting, leave this screen open until it closes by itself. If the player asks who is listening, pick your profile.</string>
     <string name="login_done">Done</string>
     <string name="login_not_signed_in">No session yet: complete the sign-in on this page first.</string>
     <string name="language">Language</string>
