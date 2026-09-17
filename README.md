@@ -39,16 +39,17 @@ uses only official APIs and never mentions or links to this app.
 ### YouTube Music
 
 A WebView opens accounts.google.com; when Google lands on music.youtube.com the session cookies are
-stored encrypted. Requests go to `youtubei/v1/...` signed with `SAPISIDHASH`, carrying the visitor id
-and client version read from the player page so they look like the player's own. They are issued as
-`fetch()` calls from a hidden WebView parked on a tiny page of music.youtube.com: Google's abuse
+stored encrypted. Requests go to `youtubei/v1/...` signed with `SAPISIDHASH`, carrying the visitor
+id and client version read from the player page so they look like the player's own. They are issued
+as `fetch()` calls from a hidden WebView parked on a tiny page of music.youtube.com: Google's abuse
 detection ("Sorry..." pages, HTTP 403) keys on the client's TLS and HTTP fingerprint, which a plain
-HTTP library cannot imitate and a Chrome engine has by nature. Plain HTTP remains the fallback. Calls are paced (and slowed further after each refusal) because the
-web interface throttles bursts of searches, on two separate lanes: signed-in calls keep a gentle
-rhythm, anonymous searches a brisk one, and Songport runs a few of the latter in parallel. Catalogue searches run **anonymously** (no cookies, an
-anonymous visitor id): they do not need the account, and the account's own quota is what a long sync
-would otherwise exhaust. Only if the anonymous route is refused does a search fall back to the
-signed-in session. Library reads and writes always use the session.
+HTTP library cannot imitate and a Chrome engine has by nature. Plain HTTP remains the fallback.
+Calls are paced (and slowed further after each refusal) because the web interface throttles bursts
+of searches, on two separate lanes: signed-in calls keep a gentle rhythm, anonymous searches a brisk
+one, and Songport runs a few of the latter in parallel. Catalogue searches run **anonymously** (no
+cookies, an anonymous visitor id): they do not need the account, and the account's own quota is what
+a long sync would otherwise exhaust. Only if the anonymous route is refused does a search fall back
+to the signed-in session. Library reads and writes always use the session.
 
 Endpoints: `browse` (playlists, playlist contents, liked songs), `search` with the songs filter,
 `playlist/create`, `browse/edit_playlist`, `like/like`, `like/removelike`. Responses are parsed by
@@ -60,18 +61,18 @@ not break it.
 Sign-in may happen twice: Amazon authenticates on amazon.com first, then sends the account to its
 regional player (music.amazon.it, music.amazon.de, ...), which can ask again. The sign-in screen
 therefore does not close on the first cookie: it waits until the player has started and made its
-first API call, which is also what tells the app which regional site to keep. Amazon issues an access token only to the running player, so neither
-`/config.json` (served anonymously) nor the page HTML carries one. The Bridge therefore loads the
-player with the stored session and mirrors the `x-amzn-*` headers the player builds for its own
-calls. A player nobody is looking at does not always start, so the sign-in and traffic-capture
-screens install the same hook in their own visible WebView: signing in waits a few seconds on the
-player's page until the headers are seen, and an offscreen player refreshes them later.
-`amznMusic.appConfig` is the fallback. Those headers are kept encrypted with the session for
-thirty minutes and reused for calls to
+first API call, which is also what tells the app which regional site to keep. Amazon issues an
+access token only to the running player, so neither `/config.json` (served anonymously) nor the page
+HTML carries one. The Bridge therefore loads the player with the stored session and mirrors the
+`x-amzn-*` headers the player builds for its own calls. A player nobody is looking at does not
+always start, so the sign-in and traffic-capture screens install the same hook in their own visible
+WebView: signing in waits a few seconds on the player's page until the headers are seen, and an
+offscreen player refreshes them later. `amznMusic.appConfig` is the fallback. Those headers are kept
+encrypted with the session for thirty minutes and reused for calls to
 `<region>.web.skill.music.a2z.com/api/<method>`, serialised inside the request body rather than sent
-as HTTP headers. Methods: `showLibraryPlaylists`,
-`showLibraryPlaylist` (rows carry the entry id needed to remove a track), `searchCatalogTracks`,
-`createPlaylist`, `addTrackToPlaylist`, `removeTrackFromPlaylist`.
+as HTTP headers. Methods: `showLibraryPlaylists`, `showLibraryPlaylist` (rows carry the entry id
+needed to remove a track), `searchCatalogTracks`, `createPlaylist`, `addTrackToPlaylist`,
+`removeTrackFromPlaylist`.
 
 They were mapped from traffic recorded with the app's own **Capture traffic** screen, which runs the
 real player in a WebView and mirrors its API calls into a local file with cookies and tokens stripped.
