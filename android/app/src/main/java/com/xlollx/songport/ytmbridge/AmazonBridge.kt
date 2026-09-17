@@ -202,7 +202,7 @@ object AmazonBridge {
 
     private const val VIEW_W = 1280
     private const val VIEW_H = 2000
-    private const val SIGN_IN_AGAIN = "sign-in page
+    private const val SIGN_IN_AGAIN = "sign-in page"
 
     /**
      * Mirrors the `x-amzn-*` headers of the player's own API calls. They are not HTTP headers: the
