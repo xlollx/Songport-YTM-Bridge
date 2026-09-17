@@ -26,6 +26,8 @@
     <string name="apple_title">Apple Music</string>
     <string name="apple_intro">Sign in with your Apple ID on music.apple.com instead of paying for the Apple Developer Program. You type your password only on Apple\'s page: this app never sees or stores it. What is kept is the session (cookies), encrypted on this phone; Songport only receives the web player\'s tokens.</string>
     <string name="apple_connect">Sign in to Apple Music</string>
+    <string name="language">Language</string>
+    <string name="language_system">System language</string>
     <string name="warning_title">Read this first</string>
     <string name="warning_body">This is not an official Google API. Using it is against the YouTube Terms of Service, it can stop working whenever Google changes something, and in the worst case Google could restrict the account you sign in with. Use it at your own risk, ideally with an account you can afford to lose. The official route (your own Google Cloud key) remains available in Songport.</string>
     <string name="status_connected">Connected as %1$s</string>

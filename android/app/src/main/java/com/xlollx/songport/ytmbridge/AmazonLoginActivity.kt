@@ -16,6 +16,7 @@ import kotlin.concurrent.thread
  * cookies and the domain are stored encrypted and the activity closes.
  */
 class AmazonLoginActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     private lateinit var web: WebView
     @Volatile private var checking = false
     @Volatile private var done = false

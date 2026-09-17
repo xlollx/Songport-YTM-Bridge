@@ -23,6 +23,7 @@ import kotlin.concurrent.thread
  * matches the client hints the WebView sends; the desktop identity is only used for API calls.
  */
 class LoginActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     private lateinit var web: WebView
     private val handler = Handler(Looper.getMainLooper())
     private var done = false

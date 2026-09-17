@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 
 /** Status screen: what this app is, the warning, connect / disconnect, back to Songport. */
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -134,6 +136,24 @@ private fun Screen() {
         TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/xlollx/Songport-YTM-Bridge"))) }) {
             Text(stringResource(R.string.source_code))
         }
+        var langOpen by remember { mutableStateOf(false) }
+        TextButton(onClick = { langOpen = true }) {
+            Text(stringResource(R.string.language) + ": " + AppLocale.label(ctx, AppLocale.current(ctx)))
+        }
+        if (langOpen) AlertDialog(
+            onDismissRequest = { langOpen = false },
+            title = { Text(stringResource(R.string.language)) },
+            text = {
+                Column {
+                    AppLocale.CHOICES.forEach { tag ->
+                        TextButton(onClick = { langOpen = false; (ctx as? android.app.Activity)?.let { AppLocale.set(it, tag) } }, modifier = Modifier.fillMaxWidth()) {
+                            Text(AppLocale.label(ctx, tag))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+        )
         Text(stringResource(R.string.version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -29,15 +29,17 @@ class YtmClient(private val ctx: Context) {
 
     private fun call(endpoint: String, body: Map<String, Any?> = emptyMap(), query: String = ""): JsonElement {
         val ck = cookies()
+        val v = visitor(ck)
         val payload = jsonObj(
             "context" to mapOf(
-                "client" to mapOf(
-                    "clientName" to "WEB_REMIX",
-                    "clientVersion" to CLIENT_VERSION,
-                    "hl" to "en",
-                    "gl" to "US",
-                    "platform" to "DESKTOP",
-                ),
+                "client" to buildMap<String, Any?> {
+                    put("clientName", "WEB_REMIX")
+                    put("clientVersion", v.clientVersion)
+                    put("hl", "en")
+                    put("gl", "US")
+                    put("platform", "DESKTOP")
+                    v.visitorData?.let { put("visitorData", it) }
+                },
                 "user" to mapOf("lockedSafetyMode" to false),
             ),
             *body.toList().toTypedArray(),
@@ -49,14 +51,17 @@ class YtmClient(private val ctx: Context) {
             .header("Authorization", Session.authorization(ck))
             .header("X-Origin", Session.ORIGIN)
             .header("Origin", Session.ORIGIN)
+            .header("Referer", "${Session.ORIGIN}/")
             .header("X-Goog-AuthUser", "0")
+            .header("X-YouTube-Client-Name", "67")
+            .header("X-YouTube-Client-Version", v.clientVersion)
+            .apply { v.visitorData?.let { header("X-Goog-Visitor-Id", it) } }
             .header("User-Agent", USER_AGENT)
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
-        // The web interface throttles bursts (403/429 after a few hundred quick searches): pace the
-        // calls and retry once after a short pause. Longer waits are Songport's job, which shows them
-        // to the user as a countdown. A 401 is a dead session, no point retrying.
-        val backoff = longArrayOf(3_000)
+        // The web interface throttles bursts (403/429): pace the calls, slow down further after each
+        // refusal, and retry once after a short pause. Longer waits are Songport's job, which shows
+        // them to the user as a countdown. A 401 is a dead session, no point retrying.
         var attempt = 0
         while (true) {
             pace()
@@ -65,23 +70,57 @@ class YtmClient(private val ctx: Context) {
                 when {
                     resp.code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
                     resp.code == 403 || resp.code == 429 -> {
-                        if (attempt < backoff.size) { Thread.sleep(backoff[attempt]); attempt++ }
-                        else throw BridgeException("YouTube Music refused the request (${resp.code}) after several retries: too many requests or expired session. Wait a few minutes and run again; if it persists, sign in again in Songport Bridge")
+                        slowDown()
+                        // A refusal can also mean a stale visitor id: refresh it before the retry.
+                        invalidateVisitor()
+                        if (attempt < 1) { Thread.sleep(3_000); attempt++ }
+                        else throw BridgeException("YouTube Music refused the request (${resp.code}): too many requests. Songport will wait and retry; if it persists, sign in again in Songport Bridge")
                     }
                     !resp.isSuccessful -> throw BridgeException("YouTube Music ${resp.code}: ${text.take(200)}")
-                    else -> return parseJson(text)
+                    else -> { speedUp(); return parseJson(text) }
                 }
             }
         }
     }
 
-    /** At most one call every 400 ms across the process. */
+    private class Visitor(val visitorData: String?, val clientVersion: String, val at: Long)
+
+    /**
+     * Visitor id and client version of the real web player, read from the music.youtube.com page
+     * with the session cookies (as the player itself does). Requests that carry them look like the
+     * player's own and are refused far less often. Cached for an hour.
+     */
+    private fun visitor(ck: String): Visitor {
+        cachedVisitor?.takeIf { System.currentTimeMillis() - it.at < 3_600_000 }?.let { return it }
+        val fresh = runCatching {
+            val req = Request.Builder().url("${Session.ORIGIN}/").header("Cookie", ck).header("User-Agent", USER_AGENT)
+                .header("Accept-Language", "en-US,en;q=0.9").build()
+            http.newCall(req).execute().use { resp ->
+                val html = resp.body?.string() ?: ""
+                val vd = Regex(""""VISITOR_DATA"\s*:\s*"([^"]+)"""").find(html)?.groupValues?.get(1)
+                val ver = Regex(""""INNERTUBE_CLIENT_VERSION"\s*:\s*"([^"]+)"""").find(html)?.groupValues?.get(1)
+                Visitor(vd, ver ?: CLIENT_VERSION, System.currentTimeMillis())
+            }
+        }.getOrElse { Visitor(null, CLIENT_VERSION, System.currentTimeMillis()) }
+        cachedVisitor = fresh
+        return fresh
+    }
+
+    private fun invalidateVisitor() { cachedVisitor = null }
+
+    /** Adaptive pacing across the process: slower after every refusal, gently faster after successes. */
     private fun pace() {
         synchronized(PACE_LOCK) {
-            val wait = lastCall + 400 - System.currentTimeMillis()
+            val wait = lastCall + paceMs - System.currentTimeMillis()
             if (wait > 0) Thread.sleep(wait)
             lastCall = System.currentTimeMillis()
         }
+    }
+
+    private fun slowDown() { synchronized(PACE_LOCK) { paceMs = (paceMs + 1_000).coerceAtMost(6_000); successes = 0 } }
+
+    private fun speedUp() {
+        synchronized(PACE_LOCK) { if (++successes >= 40) { successes = 0; paceMs = (paceMs - 300).coerceAtLeast(700) } }
     }
 
     private class Cont(val token: String, val legacy: Boolean)
@@ -274,6 +313,9 @@ class YtmClient(private val ctx: Context) {
         const val LIKED = "__liked__"
         private val PACE_LOCK = Any()
         @Volatile private var lastCall = 0L
+        @Volatile private var paceMs = 700L
+        private var successes = 0
+        @Volatile private var cachedVisitor: Visitor? = null
         const val CLIENT_VERSION = "1.20250901.01.00"
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
         /** Search filter "Songs". */

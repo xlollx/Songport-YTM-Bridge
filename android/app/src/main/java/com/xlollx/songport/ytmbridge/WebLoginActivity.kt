@@ -21,6 +21,7 @@ import kotlin.concurrent.thread
  * actions declared in the manifest.
  */
 class WebLoginActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     private lateinit var web: WebView
     private val handler = Handler(Looper.getMainLooper())
     private var done = false
