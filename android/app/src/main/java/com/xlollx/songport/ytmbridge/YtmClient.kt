@@ -85,7 +85,7 @@ class YtmClient(private val ctx: Context) {
             val t0 = System.currentTimeMillis()
             http.newCall(req).execute().use { resp ->
                 val text = resp.body?.string() ?: ""
-                Stats.record(auth, resp.code, System.currentTimeMillis() - t0)
+                Stats.record(auth, resp.code, System.currentTimeMillis() - t0, text)
                 when {
                     resp.code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
                     resp.code == 403 || resp.code == 429 -> {
@@ -171,23 +171,35 @@ class YtmClient(private val ctx: Context) {
             }
         }
 
-        fun slowDown() { synchronized(this) { paceMs = (paceMs + 1_000).coerceAtMost(ceilingMs); successes = 0 } }
+        fun slowDown() { synchronized(this) { paceMs = (paceMs + 500).coerceAtMost(ceilingMs); successes = 0 } }
 
         fun speedUp() {
-            synchronized(this) { if (++successes >= 15) { successes = 0; paceMs = (paceMs - 500).coerceAtLeast(floorMs) } }
+            synchronized(this) { if (++successes >= 10) { successes = 0; paceMs = (paceMs - 500).coerceAtLeast(floorMs) } }
         }
     }
 
     /** Counters for the diagnostics report: what the two routes are doing, nothing about content. */
     object Stats {
-        private var calls = 0; private var refusedAnon = 0; private var refusedAuth = 0; private var totalMs = 0L
-        @Synchronized fun record(auth: Boolean, code: Int, ms: Long) {
-            calls++; totalMs += ms
-            if (code == 403 || code == 429) { if (auth) refusedAuth++ else refusedAnon++ }
+        private var calls = 0; private var ok = 0; private var refusedAnon = 0; private var refusedAuth = 0
+        private var okMs = 0L; private var slowestMs = 0L
+        private var lastAnon: String? = null; private var lastAuth: String? = null
+
+        @Synchronized fun record(auth: Boolean, code: Int, ms: Long, body: String) {
+            calls++
+            if (code in 200..299) { ok++; okMs += ms; if (ms > slowestMs) slowestMs = ms }
+            if (code == 403 || code == 429) {
+                // The service's own words, trimmed: they tell a rate limit from a rejected request.
+                val why = Regex(""""message"\s*:\s*"([^"]{1,120})"""").find(body)?.groupValues?.get(1)
+                    ?: body.replace(Regex("\\s+"), " ").trim().take(100).ifBlank { "(empty body)" }
+                if (auth) { refusedAuth++; lastAuth = "$code $why" } else { refusedAnon++; lastAnon = "$code $why" }
+            }
         }
+
         @Synchronized fun summary(): String =
-            "calls $calls, avg ${if (calls == 0) 0 else totalMs / calls} ms, refused anonymous $refusedAnon, refused signed-in $refusedAuth, " +
-                "pace anonymous ${ANON_LANE.current} ms, pace signed-in ${SESSION_LANE.current} ms" +
+            "calls $calls, ok $ok, avg ok ${if (ok == 0) 0 else okMs / ok} ms, slowest $slowestMs ms, " +
+                "refused anonymous $refusedAnon" + (lastAnon?.let { " (last: $it)" } ?: "") +
+                ", refused signed-in $refusedAuth" + (lastAuth?.let { " (last: $it)" } ?: "") +
+                ", pace anonymous ${ANON_LANE.current} ms, pace signed-in ${SESSION_LANE.current} ms" +
                 (if (System.currentTimeMillis() - anonRefusedAt < ANON_COOLDOWN_MS) ", anonymous route cooling down" else "")
     }
 
@@ -395,7 +407,7 @@ class YtmClient(private val ctx: Context) {
         /** Songport's id for "Liked songs"; maps to the LM playlist here. */
         const val LIKED = "__liked__"
         /** Signed-in calls: what a person clicking around the player would produce. */
-        private val SESSION_LANE = Lane(700, 6_000)
+        private val SESSION_LANE = Lane(700, 4_000)
         /** Anonymous searches: several a second are fine, Songport also runs a few in parallel. */
         private val ANON_LANE = Lane(250, 3_000)
         @Volatile private var anonRefusedAt = 0L
