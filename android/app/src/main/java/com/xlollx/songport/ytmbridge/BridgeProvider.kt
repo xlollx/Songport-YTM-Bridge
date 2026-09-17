@@ -48,6 +48,7 @@ class BridgeProvider : ContentProvider() {
                     }
                 }
                 "search" -> ok(json.encodeToString(client.search(arg ?: "")))
+                "stats" -> Bundle().apply { putString("stats", YtmClient.Stats.summary()) }
                 "create" -> ok(json.encodeToString(client.createPlaylist(extras?.getString("name") ?: "Playlist", extras?.getString("description") ?: "")))
                 "add" -> {
                     client.addTracks(arg ?: return err("missing playlist id"), extras?.getStringArray("ids")?.toList() ?: emptyList())

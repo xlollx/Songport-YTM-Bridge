@@ -82,15 +82,19 @@ class YtmClient(private val ctx: Context) {
         val lane = if (auth) SESSION_LANE else ANON_LANE
         while (true) {
             lane.pace()
+            val t0 = System.currentTimeMillis()
             http.newCall(req).execute().use { resp ->
                 val text = resp.body?.string() ?: ""
+                Stats.record(auth, resp.code, System.currentTimeMillis() - t0)
                 when {
                     resp.code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
                     resp.code == 403 || resp.code == 429 -> {
                         lane.slowDown()
                         // A refusal can also mean a stale visitor id: refresh it before the retry.
                         invalidateVisitor(auth)
-                        if (attempt < 1) { Thread.sleep(3_000); attempt++ }
+                        // A signed-in call is retried once after a pause; an anonymous one is not, its
+                        // caller falls back to the session at once instead of paying the pause per search.
+                        if (auth && attempt < 1) { Thread.sleep(3_000); attempt++ }
                         else {
                             val reason = Regex(""""message"\s*:\s*"([^"]{1,160})"""").find(text)?.groupValues?.get(1)
                                 ?: text.replace(Regex("\\s+"), " ").trim().take(120).ifBlank { null }
@@ -109,7 +113,7 @@ class YtmClient(private val ctx: Context) {
         }
     }
 
-    private class Visitor(val visitorData: String?, val clientVersion: String, val at: Long)
+    private data class Visitor(val visitorData: String?, val clientVersion: String, val at: Long)
 
     /**
      * Visitor id and client version of the real web player, read from the music.youtube.com page
@@ -129,9 +133,21 @@ class YtmClient(private val ctx: Context) {
                 Visitor(vd, ver ?: CLIENT_VERSION, System.currentTimeMillis())
             }
         }.getOrElse { Visitor(null, CLIENT_VERSION, System.currentTimeMillis()) }
+            // In Europe an anonymous page is a consent screen without visitor data: ask the endpoint
+            // the player itself uses to be assigned one.
+            .let { if (ck == null && it.visitorData == null) it.copy(visitorData = anonymousVisitorId(it.clientVersion)) else it }
         if (ck != null) cachedVisitor = fresh else cachedAnonVisitor = fresh
         return fresh
     }
+
+    private fun anonymousVisitorId(clientVersion: String): String? = runCatching {
+        val body = jsonObj("context" to mapOf("client" to mapOf("clientName" to "WEB_REMIX", "clientVersion" to clientVersion, "hl" to "en", "gl" to "US")))
+        val req = Request.Builder().url("${Session.ORIGIN}/youtubei/v1/visitor_id?prettyPrint=false")
+            .post(body.toString().toRequestBody(JSON_TYPE))
+            .header("Cookie", ANON_COOKIES).header("User-Agent", USER_AGENT).header("Origin", Session.ORIGIN)
+            .header("X-YouTube-Client-Name", "67").header("X-YouTube-Client-Version", clientVersion).build()
+        http.newCall(req).execute().use { resp -> parseJson(resp.body?.string() ?: "")["responseContext"]["visitorData"].str }
+    }.getOrNull()
 
     private fun invalidateVisitor(auth: Boolean) { if (auth) cachedVisitor = null else cachedAnonVisitor = null }
 
@@ -141,10 +157,11 @@ class YtmClient(private val ctx: Context) {
      * and are kept gentler. Each lane slows down after every refusal and speeds up again slowly after
      * a run of successes, never below its floor.
      */
-    private class Lane(private val floorMs: Long) {
+    private class Lane(private val floorMs: Long, private val ceilingMs: Long) {
         private var lastCall = 0L
         private var paceMs = floorMs
         private var successes = 0
+        val current: Long get() = paceMs
 
         fun pace() {
             synchronized(this) {
@@ -154,11 +171,24 @@ class YtmClient(private val ctx: Context) {
             }
         }
 
-        fun slowDown() { synchronized(this) { paceMs = (paceMs + 1_000).coerceAtMost(6_000); successes = 0 } }
+        fun slowDown() { synchronized(this) { paceMs = (paceMs + 1_000).coerceAtMost(ceilingMs); successes = 0 } }
 
         fun speedUp() {
-            synchronized(this) { if (++successes >= 40) { successes = 0; paceMs = (paceMs - 300).coerceAtLeast(floorMs) } }
+            synchronized(this) { if (++successes >= 15) { successes = 0; paceMs = (paceMs - 500).coerceAtLeast(floorMs) } }
         }
+    }
+
+    /** Counters for the diagnostics report: what the two routes are doing, nothing about content. */
+    object Stats {
+        private var calls = 0; private var refusedAnon = 0; private var refusedAuth = 0; private var totalMs = 0L
+        @Synchronized fun record(auth: Boolean, code: Int, ms: Long) {
+            calls++; totalMs += ms
+            if (code == 403 || code == 429) { if (auth) refusedAuth++ else refusedAnon++ }
+        }
+        @Synchronized fun summary(): String =
+            "calls $calls, avg ${if (calls == 0) 0 else totalMs / calls} ms, refused anonymous $refusedAnon, refused signed-in $refusedAuth, " +
+                "pace anonymous ${ANON_LANE.current} ms, pace signed-in ${SESSION_LANE.current} ms" +
+                (if (System.currentTimeMillis() - anonRefusedAt < ANON_COOLDOWN_MS) ", anonymous route cooling down" else "")
     }
 
     private class Cont(val token: String, val legacy: Boolean)
@@ -248,9 +278,13 @@ class YtmClient(private val ctx: Context) {
     fun search(query: String): List<TrackDto> {
         if (query.isBlank()) return emptyList()
         val body = mapOf("query" to query, "params" to SONGS_FILTER)
-        val resp = try {
+        // Once the anonymous route is refused it usually stays refused for a while: searches go
+        // through the session for a few minutes rather than paying a refusal on every one of them.
+        val anonymousCold = System.currentTimeMillis() - anonRefusedAt < ANON_COOLDOWN_MS
+        val resp = if (anonymousCold) call("search", body, auth = true) else try {
             call("search", body, auth = false)
         } catch (e: Throttled) {
+            anonRefusedAt = System.currentTimeMillis()
             call("search", body, auth = true)
         }
         val seen = HashSet<String>()
@@ -361,9 +395,11 @@ class YtmClient(private val ctx: Context) {
         /** Songport's id for "Liked songs"; maps to the LM playlist here. */
         const val LIKED = "__liked__"
         /** Signed-in calls: what a person clicking around the player would produce. */
-        private val SESSION_LANE = Lane(700)
+        private val SESSION_LANE = Lane(700, 6_000)
         /** Anonymous searches: several a second are fine, Songport also runs a few in parallel. */
-        private val ANON_LANE = Lane(250)
+        private val ANON_LANE = Lane(250, 3_000)
+        @Volatile private var anonRefusedAt = 0L
+        private const val ANON_COOLDOWN_MS = 5 * 60_000L
         @Volatile private var cachedVisitor: Visitor? = null
         @Volatile private var cachedAnonVisitor: Visitor? = null
         /** Cookie jar of an anonymous visitor: only the consent choice, no account. */
