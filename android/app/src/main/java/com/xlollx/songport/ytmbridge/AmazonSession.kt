@@ -38,6 +38,22 @@ object AmazonSession {
         prefs(ctx).edit().putString("cookies", cookies).putString("domain", domain).putString("account", account).apply()
     }
 
+    /**
+     * The API headers of the player, captured while it was running, kept encrypted next to the
+     * session. They carry an access token, so they live here and are never handed to Songport.
+     */
+    fun saveHeaders(ctx: Context, headers: String, userAgent: String?) {
+        prefs(ctx).edit()
+            .putString("headers", headers)
+            .putString("headers_ua", userAgent)
+            .putLong("headers_at", System.currentTimeMillis())
+            .apply()
+    }
+
+    fun headers(ctx: Context): String? = prefs(ctx).getString("headers", null)
+    fun headersUserAgent(ctx: Context): String? = prefs(ctx).getString("headers_ua", null)
+    fun headersAt(ctx: Context): Long = prefs(ctx).getLong("headers_at", 0)
+
     /** Forgets the session here and the Amazon cookies in the WebView. */
     fun clear(ctx: Context) {
         prefs(ctx).edit().clear().apply()

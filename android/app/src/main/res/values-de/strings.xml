@@ -27,6 +27,7 @@
     <string name="apple_intro">Melde dich mit deiner Apple-ID auf music.apple.com an, statt für das Apple Developer Program zu zahlen. Dein Passwort gibst du nur auf Apples Seite ein: Diese App sieht und speichert es nie. Behalten wird nur die Sitzung (Cookies), verschlüsselt auf diesem Telefon; Songport erhält lediglich die Tokens des Web-Players.</string>
     <string name="apple_connect">Bei Apple Music anmelden</string>
     <string name="login_hint">Melde dich auf der Seite des Dienstes an. Dieser Bildschirm schließt sich von selbst; wenn nicht, tippe auf Fertig.</string>
+    <string name="login_finishing">Verbindung wird abgeschlossen: Lass diesen Bildschirm ein paar Sekunden offen, während der Player startet.</string>
     <string name="login_done">Fertig</string>
     <string name="login_not_signed_in">Noch keine Sitzung: Schließe zuerst die Anmeldung auf dieser Seite ab.</string>
     <string name="language">Sprache</string>

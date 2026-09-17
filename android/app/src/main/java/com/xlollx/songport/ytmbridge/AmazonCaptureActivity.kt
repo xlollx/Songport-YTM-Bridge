@@ -63,12 +63,14 @@ class AmazonCaptureActivity : ComponentActivity() {
         web.addJavascriptInterface(Sink(), "SpCapture")
         val early = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
         if (early) WebViewCompat.addDocumentStartJavaScript(web, HOOK, setOf("*"))
+        // Watching the real player here also refreshes the connector's own credentials.
+        AmazonBridge.install(this, web)
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
-                if (!early) view.evaluateJavascript(HOOK, null)
+                if (!early) { view.evaluateJavascript(HOOK, null); view.evaluateJavascript(AmazonBridge.HOOK, null) }
             }
             override fun onPageFinished(view: WebView, url: String) {
-                if (!early) view.evaluateJavascript(HOOK, null)
+                if (!early) { view.evaluateJavascript(HOOK, null); view.evaluateJavascript(AmazonBridge.HOOK, null) }
             }
         }
         onBackPressedDispatcher.addCallback(this) { if (web.canGoBack()) web.goBack() else finish() }

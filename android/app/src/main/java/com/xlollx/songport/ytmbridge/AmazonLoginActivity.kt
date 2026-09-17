@@ -27,8 +27,10 @@ import kotlin.concurrent.thread
 class AmazonLoginActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: android.content.Context) { super.attachBaseContext(AppLocale.wrap(newBase)) }
     private lateinit var web: WebView
+    private lateinit var hintView: TextView
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var done = false
+    @Volatile private var left = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,9 +46,10 @@ class AmazonLoginActivity : ComponentActivity() {
             textSize = 12f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
+        hintView = hint
         val doneButton = Button(this).apply {
             text = getString(R.string.login_done)
-            setOnClickListener { capture(manual = true) }
+            setOnClickListener { if (done) leave() else capture(manual = true) }
         }
         bar.addView(hint); bar.addView(doneButton)
         web = WebView(this).apply {
@@ -63,8 +66,17 @@ class AmazonLoginActivity : ComponentActivity() {
             builtInZoomControls = true
             displayZoomControls = false
         }
+        // The player runs here, in front of the user: the surest place to see the headers it builds
+        // for its own API calls, which are the only thing carrying an access token.
+        val early = AmazonBridge.install(this, web)
         web.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) { capture() }
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                if (!early) view.evaluateJavascript(AmazonBridge.HOOK, null)
+            }
+            override fun onPageFinished(view: WebView, url: String) {
+                if (!early) view.evaluateJavascript(AmazonBridge.HOOK, null)
+                capture()
+            }
         }
         onBackPressedDispatcher.addCallback(this) {
             if (web.canGoBack()) web.goBack() else { setResult(RESULT_CANCELED); finish() }
@@ -97,13 +109,32 @@ class AmazonLoginActivity : ComponentActivity() {
         val app = applicationContext
         AmazonSession.save(app, cookies, host, null)
         AmazonClient.forgetConfig()
-        setResult(RESULT_OK)
-        finish()
         // The display name comes from the player configuration; a failure here is not a failed login.
         thread {
             val name = runCatching { AmazonClient(app).config(host, cookies).customerName }.getOrNull()
             if (name != null) AmazonSession.save(app, cookies, host, name)
         }
+        // Cookies alone are not enough: Amazon gives an access token only to the running player, and
+        // the player only runs here. So stay a few seconds on its page until the hook has seen a call,
+        // rather than closing on the cookies and failing at the first request. Done leaves at once.
+        if (AmazonBridge.ready(app)) { leave(); return }
+        hintView.text = getString(R.string.login_finishing)
+        if (AmazonClient.isMusicDomain(Uri.parse(web.url ?: "").host)) web.reload() else web.loadUrl("https://$host/")
+        val deadline = System.currentTimeMillis() + WAIT_MS
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                if (left || isFinishing) return
+                if (AmazonBridge.ready(app) || System.currentTimeMillis() > deadline) leave()
+                else handler.postDelayed(this, 1000)
+            }
+        }, 1000)
+    }
+
+    private fun leave() {
+        if (left) return
+        left = true
+        setResult(RESULT_OK)
+        finish()
     }
 
     override fun onDestroy() {
@@ -115,5 +146,7 @@ class AmazonLoginActivity : ComponentActivity() {
     companion object {
         const val ACTION = "com.xlollx.songport.ytmbridge.AMAZON_LOGIN"
         private const val LOGIN_URL = "https://music.amazon.com/"
+        /** How long to wait for the player to make its first call once signed in. */
+        private const val WAIT_MS = 25_000L
     }
 }

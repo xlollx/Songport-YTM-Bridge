@@ -58,9 +58,12 @@ Sign-in happens on the account's regional player (music.amazon.it, music.amazon.
 kept is the one whose cookie jar actually holds the token, since Amazon signs you in on amazon.&lt;tld&gt;
 and then redirects. Amazon issues an access token only to the running player, so neither
 `/config.json` (served anonymously) nor the page HTML carries one. The Bridge therefore loads the
-player in a hidden WebView with the stored session and mirrors the `x-amzn-*` headers the player
-builds for its own calls, `amznMusic.appConfig` being the fallback. Those headers are cached for
-twenty minutes and reused for calls to
+player with the stored session and mirrors the `x-amzn-*` headers the player builds for its own
+calls. A player nobody is looking at does not always start, so the sign-in and traffic-capture
+screens install the same hook in their own visible WebView: signing in waits a few seconds on the
+player's page until the headers are seen, and an offscreen player refreshes them later.
+`amznMusic.appConfig` is the fallback. Those headers are kept encrypted with the session for
+thirty minutes and reused for calls to
 `<region>.web.skill.music.a2z.com/api/<method>`, serialised inside the request body rather than sent
 as HTTP headers. Methods: `showLibraryPlaylists`,
 `showLibraryPlaylist` (rows carry the entry id needed to remove a track), `searchCatalogTracks`,
