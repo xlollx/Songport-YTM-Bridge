@@ -27,8 +27,17 @@ class YtmClient(private val ctx: Context) {
 
     private fun cookies(): String = Session.cookies(ctx) ?: throw BridgeException("not connected")
 
-    private fun call(endpoint: String, body: Map<String, Any?> = emptyMap(), query: String = ""): JsonElement {
-        val ck = cookies()
+    /** Thrown on 403/429: the service is refusing requests for now, not a broken session. */
+    class Throttled(message: String) : Exception(message)
+
+    /**
+     * One innertube call. With [auth] the request carries the session (cookies, SAPISIDHASH); without
+     * it the request is anonymous, exactly like a visitor browsing music.youtube.com without signing
+     * in. Anonymous calls are used for catalogue searches: they do not count against the signed-in
+     * account, whose quota is what triggers the frequent 403s during a long sync.
+     */
+    private fun call(endpoint: String, body: Map<String, Any?> = emptyMap(), query: String = "", auth: Boolean = true): JsonElement {
+        val ck = if (auth) cookies() else null
         val v = visitor(ck)
         val payload = jsonObj(
             "context" to mapOf(
@@ -47,12 +56,19 @@ class YtmClient(private val ctx: Context) {
         val req = Request.Builder()
             .url("${Session.ORIGIN}/youtubei/v1/$endpoint?alt=json&prettyPrint=false$query")
             .post(payload.toString().toRequestBody(JSON_TYPE))
-            .header("Cookie", ck)
-            .header("Authorization", Session.authorization(ck))
+            .apply {
+                if (ck != null) {
+                    header("Cookie", ck)
+                    header("Authorization", Session.authorization(ck))
+                    header("X-Goog-AuthUser", "0")
+                } else {
+                    // Consent cookie only, as a visitor who dismissed the cookie banner.
+                    header("Cookie", ANON_COOKIES)
+                }
+            }
             .header("X-Origin", Session.ORIGIN)
             .header("Origin", Session.ORIGIN)
             .header("Referer", "${Session.ORIGIN}/")
-            .header("X-Goog-AuthUser", "0")
             .header("X-YouTube-Client-Name", "67")
             .header("X-YouTube-Client-Version", v.clientVersion)
             .apply { v.visitorData?.let { header("X-Goog-Visitor-Id", it) } }
@@ -72,9 +88,18 @@ class YtmClient(private val ctx: Context) {
                     resp.code == 403 || resp.code == 429 -> {
                         slowDown()
                         // A refusal can also mean a stale visitor id: refresh it before the retry.
-                        invalidateVisitor()
+                        invalidateVisitor(auth)
                         if (attempt < 1) { Thread.sleep(3_000); attempt++ }
-                        else throw BridgeException("YouTube Music refused the request (${resp.code}): too many requests. Songport will wait and retry; if it persists, sign in again in Songport Bridge")
+                        else {
+                            val reason = Regex(""""message"\s*:\s*"([^"]{1,160})"""").find(text)?.groupValues?.get(1)
+                                ?: text.replace(Regex("\\s+"), " ").trim().take(120).ifBlank { null }
+                            val who = if (auth) "signed-in" else "anonymous"
+                            throw Throttled(
+                                "YouTube Music refused the $who request (${resp.code}): too many requests" +
+                                    (reason?.let { " [$it]" } ?: "") +
+                                    ". Songport will wait and retry; if it persists, sign in again in Songport Bridge",
+                            )
+                        }
                     }
                     !resp.isSuccessful -> throw BridgeException("YouTube Music ${resp.code}: ${text.take(200)}")
                     else -> { speedUp(); return parseJson(text) }
@@ -90,10 +115,11 @@ class YtmClient(private val ctx: Context) {
      * with the session cookies (as the player itself does). Requests that carry them look like the
      * player's own and are refused far less often. Cached for an hour.
      */
-    private fun visitor(ck: String): Visitor {
-        cachedVisitor?.takeIf { System.currentTimeMillis() - it.at < 3_600_000 }?.let { return it }
+    private fun visitor(ck: String?): Visitor {
+        val cached = if (ck != null) cachedVisitor else cachedAnonVisitor
+        cached?.takeIf { System.currentTimeMillis() - it.at < 3_600_000 }?.let { return it }
         val fresh = runCatching {
-            val req = Request.Builder().url("${Session.ORIGIN}/").header("Cookie", ck).header("User-Agent", USER_AGENT)
+            val req = Request.Builder().url("${Session.ORIGIN}/").header("Cookie", ck ?: ANON_COOKIES).header("User-Agent", USER_AGENT)
                 .header("Accept-Language", "en-US,en;q=0.9").build()
             http.newCall(req).execute().use { resp ->
                 val html = resp.body?.string() ?: ""
@@ -102,11 +128,11 @@ class YtmClient(private val ctx: Context) {
                 Visitor(vd, ver ?: CLIENT_VERSION, System.currentTimeMillis())
             }
         }.getOrElse { Visitor(null, CLIENT_VERSION, System.currentTimeMillis()) }
-        cachedVisitor = fresh
+        if (ck != null) cachedVisitor = fresh else cachedAnonVisitor = fresh
         return fresh
     }
 
-    private fun invalidateVisitor() { cachedVisitor = null }
+    private fun invalidateVisitor(auth: Boolean) { if (auth) cachedVisitor = null else cachedAnonVisitor = null }
 
     /** Adaptive pacing across the process: slower after every refusal, gently faster after successes. */
     private fun pace() {
@@ -201,9 +227,20 @@ class YtmClient(private val ctx: Context) {
         return out.values.toList()
     }
 
+    /**
+     * Catalogue search. Runs anonymously first: a search does not need the account, and the account is
+     * exactly what YouTube throttles after a few hundred rapid searches (the "403 every few songs" of
+     * a long sync). Only when the anonymous route is refused does it fall back to the signed-in one,
+     * so a sync keeps going in the worst case instead of stopping.
+     */
     fun search(query: String): List<TrackDto> {
         if (query.isBlank()) return emptyList()
-        val resp = call("search", mapOf("query" to query, "params" to SONGS_FILTER))
+        val body = mapOf("query" to query, "params" to SONGS_FILTER)
+        val resp = try {
+            call("search", body, auth = false)
+        } catch (e: Throttled) {
+            call("search", body, auth = true)
+        }
         val seen = HashSet<String>()
         return resp.findAll("musicResponsiveListItemRenderer")
             .mapNotNull { parseItem(it) }
@@ -316,6 +353,9 @@ class YtmClient(private val ctx: Context) {
         @Volatile private var paceMs = 700L
         private var successes = 0
         @Volatile private var cachedVisitor: Visitor? = null
+        @Volatile private var cachedAnonVisitor: Visitor? = null
+        /** Cookie jar of an anonymous visitor: only the consent choice, no account. */
+        private const val ANON_COOKIES = "SOCS=CAI"
         const val CLIENT_VERSION = "1.20250901.01.00"
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
         /** Search filter "Songs". */
