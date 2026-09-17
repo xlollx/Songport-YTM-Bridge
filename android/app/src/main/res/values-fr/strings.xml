@@ -21,10 +21,10 @@
     <string name="disclaimer_accept">J\'ai compris et j\'accepte</string>
     <string name="disclaimer_review">Lire l\'avertissement</string>
     <string name="spotify_title">Spotify</string>
-    <string name="spotify_intro">Connectez-vous sur la page de Spotify au lieu de créer une application développeur. Le Bridge réutilise la session du lecteur web et transmet à Songport un jeton de courte durée ; votre mot de passe et vos cookies restent ici.</string>
+    <string name="spotify_intro">Connectez-vous sur la page de Spotify au lieu de créer une application développeur. Vous saisissez votre mot de passe uniquement sur cette page : cette application ne le voit jamais et ne l\'enregistre pas. Seule la session (les cookies) est conservée, chiffrée sur ce téléphone ; Songport ne reçoit qu\'un jeton de courte durée.</string>
     <string name="spotify_connect">Se connecter à Spotify</string>
     <string name="apple_title">Apple Music</string>
-    <string name="apple_intro">Connectez-vous avec votre identifiant Apple sur music.apple.com au lieu de payer l\'Apple Developer Program. Le Bridge lit les jetons du lecteur web et les transmet à Songport ; votre mot de passe reste ici.</string>
+    <string name="apple_intro">Connectez-vous avec votre identifiant Apple sur music.apple.com au lieu de payer l\'Apple Developer Program. Vous saisissez votre mot de passe uniquement sur la page d\'Apple : cette application ne le voit jamais et ne l\'enregistre pas. Seule la session (les cookies) est conservée, chiffrée sur ce téléphone ; Songport ne reçoit que les jetons du lecteur web.</string>
     <string name="apple_connect">Se connecter à Apple Music</string>
     <string name="warning_title">À lire avant tout</string>
     <string name="warning_body">Ce n\'est pas une API Google officielle. Son utilisation est contraire aux conditions d\'utilisation de YouTube, elle peut cesser de fonctionner dès que Google change quelque chose et, dans le pire des cas, Google pourrait restreindre le compte avec lequel vous vous connectez. Utilisez-la à vos risques, idéalement avec un compte que vous pouvez vous permettre de perdre. La voie officielle (votre propre clé Google Cloud) reste disponible dans Songport.</string>

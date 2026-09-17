@@ -21,10 +21,10 @@
     <string name="disclaimer_accept">Ho capito e accetto</string>
     <string name="disclaimer_review">Leggi l\'esclusione di responsabilità</string>
     <string name="spotify_title">Spotify</string>
-    <string name="spotify_intro">Accedi dalla pagina di Spotify invece di creare un\'app da sviluppatore. Il Bridge riusa la sessione del player web e passa a Songport un token di breve durata; password e cookie restano qui.</string>
+    <string name="spotify_intro">Accedi dalla pagina di Spotify invece di creare un\'app da sviluppatore. La password la digiti solo su quella pagina: questa app non la vede e non la salva. Resta solo la sessione (i cookie), cifrata su questo telefono; Songport riceve soltanto un token di breve durata.</string>
     <string name="spotify_connect">Accedi a Spotify</string>
     <string name="apple_title">Apple Music</string>
-    <string name="apple_intro">Accedi con il tuo ID Apple su music.apple.com invece di pagare l\'Apple Developer Program. Il Bridge legge i token del player web e li passa a Songport; la password resta qui.</string>
+    <string name="apple_intro">Accedi con il tuo ID Apple su music.apple.com invece di pagare l\'Apple Developer Program. La password la digiti solo sulla pagina di Apple: questa app non la vede e non la salva. Resta solo la sessione (i cookie), cifrata su questo telefono; Songport riceve soltanto i token del player web.</string>
     <string name="apple_connect">Accedi ad Apple Music</string>
     <string name="warning_title">Leggi prima di continuare</string>
     <string name="warning_body">Questa non è un\'API ufficiale di Google. Usarla è contrario ai Termini di servizio di YouTube, può smettere di funzionare quando Google cambia qualcosa e, nel caso peggiore, Google potrebbe limitare l\'account con cui accedi. Usala a tuo rischio, meglio con un account che puoi permetterti di perdere. La strada ufficiale (una tua chiave Google Cloud) resta disponibile in Songport.</string>

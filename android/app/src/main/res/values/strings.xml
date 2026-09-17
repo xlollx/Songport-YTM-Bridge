@@ -21,10 +21,10 @@
     <string name="disclaimer_accept">I understand and accept</string>
     <string name="disclaimer_review">Read the disclaimer</string>
     <string name="spotify_title">Spotify</string>
-    <string name="spotify_intro">Sign in on Spotify\'s own page instead of creating a developer app. The Bridge reuses the web player\'s session and hands Songport a short-lived token; your password and cookies stay here.</string>
+    <string name="spotify_intro">Sign in on Spotify\'s own page instead of creating a developer app. You type your password only on that page: this app never sees or stores it. What is kept is the session (cookies), encrypted on this phone; Songport only receives a short-lived token.</string>
     <string name="spotify_connect">Sign in to Spotify</string>
     <string name="apple_title">Apple Music</string>
-    <string name="apple_intro">Sign in with your Apple ID on music.apple.com instead of paying for the Apple Developer Program. The Bridge reads the web player\'s tokens and hands them to Songport; your password stays here.</string>
+    <string name="apple_intro">Sign in with your Apple ID on music.apple.com instead of paying for the Apple Developer Program. You type your password only on Apple\'s page: this app never sees or stores it. What is kept is the session (cookies), encrypted on this phone; Songport only receives the web player\'s tokens.</string>
     <string name="apple_connect">Sign in to Apple Music</string>
     <string name="warning_title">Read this first</string>
     <string name="warning_body">This is not an official Google API. Using it is against the YouTube Terms of Service, it can stop working whenever Google changes something, and in the worst case Google could restrict the account you sign in with. Use it at your own risk, ideally with an account you can afford to lose. The official route (your own Google Cloud key) remains available in Songport.</string>
