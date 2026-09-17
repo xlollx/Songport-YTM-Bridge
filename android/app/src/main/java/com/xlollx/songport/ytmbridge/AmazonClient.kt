@@ -16,9 +16,10 @@ import java.util.concurrent.TimeUnit
  * Talks to the endpoints the Amazon Music web player uses ("skyfire" templates on
  * *.web.skill.music.a2z.com/api/<method>). Like the YouTube Music client this is not a public API.
  *
- * Boot sequence, same as the web player: `GET https://<domain>/config.json` with the session
- * cookies returns the access token, device and session ids and the CSRF triple; every API call then
- * carries them as `x-amzn-*` headers, serialised inside the JSON body under `headers`.
+ * Credentials come from [AmazonBridge], which runs the real player in a hidden WebView and mirrors
+ * the `x-amzn-*` headers it builds for its own calls: Amazon issues an access token only to the
+ * running player, so neither `config.json` nor the served page carries one. Those headers travel
+ * inside the JSON body, under `headers`, not as HTTP headers.
  *
  * Methods and payloads were taken from traffic captured with the app's own "Capture traffic"
  * screen: showLibraryPlaylists, showLibraryPlaylist, createPlaylist, addTrackToPlaylist,
@@ -74,6 +75,11 @@ class AmazonClient(private val ctx: Context) {
         cachedConfig = System.currentTimeMillis() to c
         return c
     }
+
+    /** Display name of the signed-in customer, best effort: the player's configuration knows it. */
+    fun accountName(): String? =
+        runCatching { AmazonBridge.player(ctx, domain()).config?.let { Config(it, sessionCookie(cookies())).customerName } }.getOrNull()
+            ?: runCatching { config().customerName }.getOrNull()
 
     /** `amznMusic.appConfig = {...};` inlined in the page the player is served, read with the session. */
     private fun pageConfig(domain: String, cookies: String): Config? {
@@ -172,24 +178,47 @@ class AmazonClient(private val ctx: Context) {
     }
 
     /** One call to `/api/<method>`; [params] are the method arguments (`id`, `keyword`, ...). */
-    fun call(method: String, params: Map<String, Any?>, pageUrl: String = "", cfg: Config? = null): JsonElement =
-        callUrl("${skillEndpoint(domain())}/api/$method", params, pageUrl, cfg)
+    fun call(method: String, params: Map<String, Any?>, pageUrl: String = ""): JsonElement =
+        callUrl("${skillEndpoint(domain())}/api/$method", params, pageUrl)
+
+    /**
+     * The `x-amzn-*` set for one call: the player's own, captured from its traffic, with the values
+     * that change on every request refreshed here. Falling back to a set built from the player's
+     * configuration keeps things working if Amazon stops making calls we can see.
+     */
+    private fun apiHeaders(domain: String, pageUrl: String): Map<String, String> {
+        val player = AmazonBridge.player(ctx, domain)
+        val fresh = mapOf(
+            "x-amzn-timestamp" to System.currentTimeMillis().toString(),
+            "x-amzn-request-id" to java.util.UUID.randomUUID().toString().replace("-", "").take(13),
+            "x-amzn-page-url" to pageUrl,
+            "x-amzn-music-domain" to domain,
+            "x-amzn-referer" to domain,
+        )
+        if (player.headers.isNotEmpty()) return player.headers + fresh
+        val c = Config(player.config ?: JsonObject(emptyMap()), sessionCookie(cookies()))
+        if (!c.signedIn) throw BridgeException(
+            "the Amazon Music player did not hand out an access token: sign in to Amazon again in Songport Bridge. " +
+                "Fields: " + c.fields.joinToString(", ").take(200).ifBlank { "none" },
+        )
+        return xAmznHeaders(c, domain, pageUrl) + fresh
+    }
 
     /** A call to an absolute skill URL (also the ones the responses hand back for the next page). */
-    private fun callUrl(url: String, params: Map<String, Any?>, pageUrl: String = "", cfg: Config? = null): JsonElement {
+    private fun callUrl(url: String, params: Map<String, Any?>, pageUrl: String = ""): JsonElement {
         val domain = domain()
-        val c = cfg ?: config()
         val body = jsonObj(
             *params.toList().toTypedArray(),
             "userHash" to jsonObj("level" to USER_LEVEL).toString(),
-            "headers" to JsonObject(xAmznHeaders(c, domain, pageUrl).mapValues { JsonPrimitive(it.value) }).toString(),
+            "headers" to JsonObject(apiHeaders(domain, pageUrl).mapValues { JsonPrimitive(it.value) }).toString(),
         )
         val req = Request.Builder()
             .url(url)
             .post(body.toString().toRequestBody(TEXT_TYPE))
             .header("Origin", "https://$domain")
             .header("Referer", "https://$domain/")
-            .header("User-Agent", USER_AGENT)
+            // The same user agent the player used when it built those headers.
+            .header("User-Agent", AmazonBridge.player(ctx, domain).userAgent ?: USER_AGENT)
             .header("Accept", "*/*")
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
@@ -197,6 +226,7 @@ class AmazonClient(private val ctx: Context) {
             val text = resp.body?.string() ?: ""
             if (resp.code == 401 || resp.code == 403) {
                 cachedConfig = null
+                AmazonBridge.forget()
                 throw BridgeException("Amazon Music rejected the session (${resp.code}): sign in again in Songport Bridge")
             }
             if (!resp.isSuccessful) throw BridgeException("Amazon Music ${resp.code}: ${text.take(200)}")
@@ -223,9 +253,9 @@ class AmazonClient(private val ctx: Context) {
     }
 
     /** Tracks of a library playlist, following the "more" hook the player uses for long lists. */
-    fun playlistTracks(id: String, cfg: Config? = null): List<TrackDto> {
+    fun playlistTracks(id: String): List<TrackDto> {
         val domain = domain()
-        var j = call("showLibraryPlaylist", mapOf("id" to id), "https://$domain/my/playlists/$id", cfg)
+        var j = call("showLibraryPlaylist", mapOf("id" to id), "https://$domain/my/playlists/$id")
         val out = LinkedHashMap<String, TrackDto>()
         var pages = 0
         while (true) {
@@ -233,16 +263,16 @@ class AmazonClient(private val ctx: Context) {
             val next = j.findAll("onEndOfWidget").flatMap { (it as? JsonArray) ?: emptyList() }
                 .mapNotNull { it["url"].str }.firstOrNull { "/api/" in it } ?: break
             if (++pages > 200) break
-            j = callUrl(next, emptyMap(), "https://$domain/my/playlists/$id", cfg)
+            j = callUrl(next, emptyMap(), "https://$domain/my/playlists/$id")
             if (parseItems(j).isEmpty()) break
         }
         return out.values.toList()
     }
 
     /** Catalog search, songs only. Track ids are ASINs. */
-    fun searchTracks(query: String, cfg: Config? = null): List<TrackDto> {
+    fun searchTracks(query: String): List<TrackDto> {
         val domain = domain()
-        val j = call("searchCatalogTracks", mapOf("keyword" to query), "https://$domain/search/${enc(query)}/songs", cfg)
+        val j = call("searchCatalogTracks", mapOf("keyword" to query), "https://$domain/search/${enc(query)}/songs")
         return parseItems(j).take(8)
     }
 

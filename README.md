@@ -56,11 +56,13 @@ not break it.
 
 Sign-in happens on the account's regional player (music.amazon.it, music.amazon.de, ...); the domain
 kept is the one whose cookie jar actually holds the token, since Amazon signs you in on amazon.&lt;tld&gt;
-and then redirects. The player configuration is read from `amznMusic.appConfig`, inlined in the page
-served to a signed-in session: that is where the access token lives. `/config.json` is only a
-fallback, because Amazon serves it anonymously and it carries no token. Requests then go to
-`<region>.web.skill.music.a2z.com/api/<method>` with the `x-amzn-*` headers built from that
-configuration, serialised inside the request body. Methods: `showLibraryPlaylists`,
+and then redirects. Amazon issues an access token only to the running player, so neither
+`/config.json` (served anonymously) nor the page HTML carries one. The Bridge therefore loads the
+player in a hidden WebView with the stored session and mirrors the `x-amzn-*` headers the player
+builds for its own calls, `amznMusic.appConfig` being the fallback. Those headers are cached for
+twenty minutes and reused for calls to
+`<region>.web.skill.music.a2z.com/api/<method>`, serialised inside the request body rather than sent
+as HTTP headers. Methods: `showLibraryPlaylists`,
 `showLibraryPlaylist` (rows carry the entry id needed to remove a track), `searchCatalogTracks`,
 `createPlaylist`, `addTrackToPlaylist`, `removeTrackFromPlaylist`.
 
