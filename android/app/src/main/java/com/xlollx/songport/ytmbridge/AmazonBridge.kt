@@ -73,8 +73,12 @@ object AmazonBridge {
         web.addJavascriptInterface(object {
             @JavascriptInterface
             fun headers(json: String, ua: String?, host: String?) { remember(app, json, ua, host) }
+            /** The configuration is only used here for the display name shown on the status screen. */
             @JavascriptInterface
-            fun config(json: String, ua: String?) { }
+            fun config(json: String, ua: String?) {
+                val j = parseJson(json) as? JsonObject ?: return
+                AmazonClient.Config(j).customerName?.takeIf { it.isNotBlank() }?.let { AmazonSession.saveAccount(app, it) }
+            }
         }, "AmzBridge")
         val early = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
         if (early) WebViewCompat.addDocumentStartJavaScript(web, HOOK, setOf("*"))
@@ -235,7 +239,7 @@ object AmazonBridge {
     """.trimIndent()
 
     /** The configuration object, retried while the single page application boots. */
-    private val CONFIG = """
+    val CONFIG = """
         (function(){
           if (window.__amzCfg) return; window.__amzCfg = 1;
           var tries = 0;

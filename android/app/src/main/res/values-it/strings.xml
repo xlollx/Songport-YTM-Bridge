@@ -5,11 +5,12 @@
     <string name="intro">Componente facoltativo per Songport. Collega i servizi senza API aperta (YouTube Music e, in via sperimentale, Amazon Music) attraverso la stessa interfaccia web usata dai loro player, così non servono chiavi da sviluppatore. Songport riceve solo playlist e brani; i login restano in questa app.</string>
     <string name="ytm_title">YouTube Music</string>
     <string name="amazon_title">Amazon Music (sperimentale)</string>
-    <string name="amazon_intro">Anche Amazon Music non ha un\'API aperta, e quella ufficiale è riservata ai partner approvati. Questo connettore usa l\'interfaccia del player web ed è ancora in completamento: accedi, esegui il test di connessione, poi usa la cattura del traffico così le parti mancanti possono essere finite sul protocollo reale.</string>
+    <string name="amazon_intro">Anche Amazon Music non ha un\'API aperta, e quella ufficiale è riservata ai partner approvati. Questo connettore usa l\'interfaccia del player web. Accedi da qui: Amazon può chiedere l\'accesso due volte, prima su amazon.com e poi sul sito del tuo paese; completa entrambi e lascia aperta la schermata finché non si chiude da sola, cosa che avviene appena il player è partito. Poi esegui il test di connessione.</string>
     <string name="amazon_connect">Accedi ad Amazon</string>
     <string name="amazon_test">Prova la connessione</string>
     <string name="amazon_test_running">Verifica in corso…</string>
     <string name="amazon_test_ok">Collegato come %1$s. La ricerca di prova ha restituito %2$d brani.</string>
+    <string name="amazon_test_ok_noname">Collegato. La ricerca di prova ha restituito %1$d brani.</string>
     <string name="amazon_test_fail">Test fallito: %1$s</string>
     <string name="amazon_capture">Cattura traffico</string>
     <string name="amazon_capture_intro">Usa Amazon Music normalmente qui: apri Libreria → Playlist, apri una tua playlist, crea una playlist, aggiungici un brano, rimuovilo, cerca un brano. Ogni chiamata del player viene scritta in un file su questo telefono, senza cookie né token. Poi tocca Condividi e invia il file allo sviluppatore.</string>
@@ -35,6 +36,7 @@
     <string name="warning_title">Leggi prima di continuare</string>
     <string name="warning_body">Questa non è un\'API ufficiale di Google. Usarla è contrario ai Termini di servizio di YouTube, può smettere di funzionare quando Google cambia qualcosa e, nel caso peggiore, Google potrebbe limitare l\'account con cui accedi. Usala a tuo rischio, meglio con un account che puoi permetterti di perdere. La strada ufficiale (una tua chiave Google Cloud) resta disponibile in Songport.</string>
     <string name="status_connected">Collegato come %1$s</string>
+    <string name="status_connected_plain">Collegato</string>
     <string name="status_disconnected">Non collegato</string>
     <string name="privacy_note">La sessione è salvata cifrata solo su questo telefono. Non viene mai inviata a Songport, al suo sviluppatore o ad altri.</string>
     <string name="connect">Accedi con Google</string>

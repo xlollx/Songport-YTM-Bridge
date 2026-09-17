@@ -55,9 +55,10 @@ not break it.
 
 ### Amazon Music
 
-Sign-in happens on the account's regional player (music.amazon.it, music.amazon.de, ...); the domain
-kept is the one whose cookie jar actually holds the token, since Amazon signs you in on amazon.&lt;tld&gt;
-and then redirects. Amazon issues an access token only to the running player, so neither
+Sign-in may happen twice: Amazon authenticates on amazon.com first, then sends the account to its
+regional player (music.amazon.it, music.amazon.de, ...), which can ask again. The sign-in screen
+therefore does not close on the first cookie: it waits until the player has started and made its
+first API call, which is also what tells the app which regional site to keep. Amazon issues an access token only to the running player, so neither
 `/config.json` (served anonymously) nor the page HTML carries one. The Bridge therefore loads the
 player with the stored session and mirrors the `x-amzn-*` headers the player builds for its own
 calls. A player nobody is looking at does not always start, so the sign-in and traffic-capture

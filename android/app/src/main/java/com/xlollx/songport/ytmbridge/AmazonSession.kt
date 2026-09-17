@@ -35,7 +35,12 @@ object AmazonSession {
     fun isConnected(ctx: Context): Boolean = cookies(ctx) != null && domain(ctx) != null
 
     fun save(ctx: Context, cookies: String, domain: String, account: String?) {
-        prefs(ctx).edit().putString("cookies", cookies).putString("domain", domain).putString("account", account).apply()
+        prefs(ctx).edit().putString("cookies", cookies).putString("domain", domain).putString("account", account ?: account(ctx)).apply()
+    }
+
+    /** Display name of the customer, when the player's configuration revealed it. */
+    fun saveAccount(ctx: Context, account: String) {
+        prefs(ctx).edit().putString("account", account).apply()
     }
 
     /**

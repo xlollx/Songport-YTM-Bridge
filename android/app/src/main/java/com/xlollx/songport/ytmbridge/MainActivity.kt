@@ -199,7 +199,7 @@ private fun AmazonCard(version: Int, onChanged: () -> Unit) {
             Text(stringResource(R.string.amazon_title), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.amazon_intro), style = MaterialTheme.typography.bodyMedium)
             Text(
-                if (connected) stringResource(R.string.status_connected, account ?: "Amazon Music") else stringResource(R.string.status_disconnected),
+                when { !connected -> stringResource(R.string.status_disconnected); account != null -> stringResource(R.string.status_connected, account); else -> stringResource(R.string.status_connected_plain) },
                 style = MaterialTheme.typography.titleMedium,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -216,7 +216,9 @@ private fun AmazonCard(version: Int, onChanged: () -> Unit) {
                                 AmazonClient.forgetConfig()
                                 val client = AmazonClient(app)
                                 val found = client.searchTracks("Daft Punk")
-                                app.getString(R.string.amazon_test_ok, client.accountName() ?: "?", found.size)
+                                val who = client.accountName() ?: AmazonSession.account(app)
+                                if (who != null) app.getString(R.string.amazon_test_ok, who, found.size)
+                                else app.getString(R.string.amazon_test_ok_noname, found.size)
                             } catch (e: Exception) {
                                 app.getString(R.string.amazon_test_fail, e.message ?: e.javaClass.simpleName)
                             }

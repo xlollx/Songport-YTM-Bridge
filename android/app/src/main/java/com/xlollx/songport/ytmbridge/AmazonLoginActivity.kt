@@ -76,6 +76,7 @@ class AmazonLoginActivity : ComponentActivity() {
             }
             override fun onPageFinished(view: WebView, url: String) {
                 if (!early) view.evaluateJavascript(AmazonBridge.HOOK, null)
+                if (AmazonClient.isMusicDomain(Uri.parse(url).host)) view.evaluateJavascript(AmazonBridge.CONFIG, null)
                 capture()
             }
         }

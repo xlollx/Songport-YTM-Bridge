@@ -5,11 +5,12 @@
     <string name="intro">Optional companion for Songport. It connects services that have no open API (YouTube Music, and Amazon Music as an experiment) through the same web interface their players use, so you do not need developer keys. Songport only receives your playlists and tracks; the logins themselves stay in this app.</string>
     <string name="ytm_title">YouTube Music</string>
     <string name="amazon_title">Amazon Music (experimental)</string>
-    <string name="amazon_intro">Amazon Music has no open API either, and its official one is reserved to approved partners. This connector uses the web player\'s interface and is still being completed: sign in, run the connection test, then use the traffic capture so the missing parts can be finished against the real protocol.</string>
+    <string name="amazon_intro">Amazon Music has no open API either, and its official one is reserved to approved partners. This connector uses the web player\'s interface. Sign in here: Amazon may ask twice, first on amazon.com and then on your country\'s site, so complete both and leave the screen open until it closes by itself, which happens as soon as the player has started. Then run the connection test.</string>
     <string name="amazon_connect">Sign in to Amazon</string>
     <string name="amazon_test">Test connection</string>
     <string name="amazon_test_running">Testing…</string>
     <string name="amazon_test_ok">Connected as %1$s. Search test returned %2$d tracks.</string>
+    <string name="amazon_test_ok_noname">Connected. Search test returned %1$d tracks.</string>
     <string name="amazon_test_fail">Test failed: %1$s</string>
     <string name="amazon_capture">Capture traffic</string>
     <string name="amazon_capture_intro">Use Amazon Music normally here: open Library → Playlists, open one of your playlists, create a playlist, add a song to it, remove it, search for a song. Every call the player makes is written to a file on this phone, without cookies or tokens. Then tap Share and send the file to the developer.</string>
@@ -35,6 +36,7 @@
     <string name="warning_title">Read this first</string>
     <string name="warning_body">This is not an official Google API. Using it is against the YouTube Terms of Service, it can stop working whenever Google changes something, and in the worst case Google could restrict the account you sign in with. Use it at your own risk, ideally with an account you can afford to lose. The official route (your own Google Cloud key) remains available in Songport.</string>
     <string name="status_connected">Connected as %1$s</string>
+    <string name="status_connected_plain">Connected</string>
     <string name="status_disconnected">Not connected</string>
     <string name="privacy_note">Your session is stored encrypted on this phone only. It is never sent to Songport, to its developer or to anyone else.</string>
     <string name="connect">Sign in with Google</string>
