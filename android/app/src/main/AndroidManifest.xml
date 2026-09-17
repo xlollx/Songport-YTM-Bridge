@@ -23,6 +23,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Songport's connector-plugin discovery: the action plus the provider authority to call. -->
+            <intent-filter>
+                <action android:name="com.xlollx.songport.action.CONNECTOR" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="com.xlollx.songport.connector.authority"
+                android:value="com.xlollx.songport.ytmbridge.provider" />
         </activity>
 
         <!-- Login: Songport la avvia con l'azione esplicita qui sotto; l'utente accede su accounts.google.com. -->
