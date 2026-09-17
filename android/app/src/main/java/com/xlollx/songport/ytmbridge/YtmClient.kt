@@ -53,13 +53,33 @@ class YtmClient(private val ctx: Context) {
             .header("User-Agent", USER_AGENT)
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
-        http.newCall(req).execute().use { resp ->
-            val text = resp.body?.string() ?: ""
-            if (resp.code == 401 || resp.code == 403) {
-                throw BridgeException("YouTube Music rejected the session (${resp.code}): sign in again in Songport YTM Bridge")
+        // The web interface throttles bursts (403/429 after a few hundred quick searches): pace the
+        // calls and back off a few times before giving up. A 401 is a dead session, no point retrying.
+        val backoff = longArrayOf(3_000, 10_000, 30_000)
+        var attempt = 0
+        while (true) {
+            pace()
+            http.newCall(req).execute().use { resp ->
+                val text = resp.body?.string() ?: ""
+                when {
+                    resp.code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
+                    resp.code == 403 || resp.code == 429 -> {
+                        if (attempt < backoff.size) { Thread.sleep(backoff[attempt]); attempt++ }
+                        else throw BridgeException("YouTube Music refused the request (${resp.code}) after several retries: too many requests or expired session. Wait a few minutes and run again; if it persists, sign in again in Songport Bridge")
+                    }
+                    !resp.isSuccessful -> throw BridgeException("YouTube Music ${resp.code}: ${text.take(200)}")
+                    else -> return parseJson(text)
+                }
             }
-            if (!resp.isSuccessful) throw BridgeException("YouTube Music ${resp.code}: ${text.take(200)}")
-            return parseJson(text)
+        }
+    }
+
+    /** At most one call every 400 ms across the process. */
+    private fun pace() {
+        synchronized(PACE_LOCK) {
+            val wait = lastCall + 400 - System.currentTimeMillis()
+            if (wait > 0) Thread.sleep(wait)
+            lastCall = System.currentTimeMillis()
         }
     }
 
@@ -251,6 +271,8 @@ class YtmClient(private val ctx: Context) {
     companion object {
         /** Songport's id for "Liked songs"; maps to the LM playlist here. */
         const val LIKED = "__liked__"
+        private val PACE_LOCK = Any()
+        @Volatile private var lastCall = 0L
         const val CLIENT_VERSION = "1.20250901.01.00"
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
         /** Search filter "Songs". */
