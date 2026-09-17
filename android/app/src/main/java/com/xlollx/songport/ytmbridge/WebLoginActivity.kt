@@ -39,8 +39,26 @@ class WebLoginActivity : ComponentActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setup() {
-        web = WebView(this)
-        setContentView(web)
+        // A "Done" button next to the page: a service that answers something unexpected must never
+        // leave the user trapped in this screen.
+        val root = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+        val bar = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL; setPadding(24, 12, 24, 12) }
+        bar.addView(android.widget.TextView(this).apply {
+            text = getString(R.string.login_hint)
+            textSize = 12f
+            layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        bar.addView(android.widget.Button(this).apply {
+            text = getString(R.string.login_done)
+            setOnClickListener {
+                if (!check()) android.widget.Toast.makeText(this@WebLoginActivity, R.string.login_not_signed_in, android.widget.Toast.LENGTH_LONG).show()
+            }
+        })
+        web = WebView(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        root.addView(bar); root.addView(web)
+        setContentView(root)
         CookieManager.getInstance().apply { setAcceptCookie(true); setAcceptThirdPartyCookies(web, true) }
         web.settings.apply {
             javaScriptEnabled = true
@@ -78,12 +96,13 @@ class WebLoginActivity : ComponentActivity() {
         }, 1500)
     }
 
-    private fun check() {
-        if (done) return
+    /** @return true when a session was captured (the screen then closes). */
+    private fun check(): Boolean {
+        if (done) return true
         val origin = if (service == APPLE) "https://music.apple.com" else "https://open.spotify.com"
-        val cookies = CookieManager.getInstance().getCookie(origin) ?: return
+        val cookies = CookieManager.getInstance().getCookie(origin) ?: return false
         val ok = if (service == APPLE) AppleBridge.signedIn(cookies) else SpotifyBridge.signedIn(cookies)
-        if (!ok) return
+        if (!ok) return false
         done = true
         val sess = if (service == APPLE) AppleBridge.session else SpotifyBridge.session
         val app = applicationContext
@@ -99,6 +118,7 @@ class WebLoginActivity : ComponentActivity() {
             }.getOrNull()
             if (account != null) sess.save(app, cookies, account)
         }
+        return true
     }
 
     override fun onDestroy() {

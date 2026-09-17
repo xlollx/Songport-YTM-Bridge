@@ -36,7 +36,8 @@ class AmazonClient(private val ctx: Context) {
         val csrfRnd get() = raw["csrf"]["rnd"].asText()
         val customerId get() = raw["customerId"].str
         val customerName get() = raw["customerName"].str ?: raw["displayName"].str ?: raw["customerDisplayName"].str
-        val signedIn get() = accessToken.isNotBlank() && customerId != null
+        /** The player hands out an access token only to a signed-in session; the ids may be named differently. */
+        val signedIn get() = accessToken.isNotBlank()
     }
 
     private val http = OkHttpClient.Builder()

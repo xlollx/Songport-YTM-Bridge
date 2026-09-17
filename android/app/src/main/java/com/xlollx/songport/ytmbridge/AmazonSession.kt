@@ -57,7 +57,9 @@ object AmazonSession {
         }
     }
 
-    /** True when the cookie jar holds an Amazon authentication token (at-main, at-acbit, at-acbde, ...). */
-    fun looksSignedIn(cookies: String?): Boolean =
-        cookies != null && cookies.split(';').any { it.trim().startsWith("at-") && it.contains('=') && it.substringAfter('=').trim().length > 20 }
+    /** True when the cookie jar holds an Amazon authentication token (at-main, at-acbit, sess-at-*, ...). */
+    fun looksSignedIn(cookies: String?): Boolean = cookies != null && cookies.split(';').any {
+        val c = it.trim()
+        (c.startsWith("at-") || c.startsWith("sess-at-")) && c.substringAfter('=', "").trim().length > 20
+    }
 }
