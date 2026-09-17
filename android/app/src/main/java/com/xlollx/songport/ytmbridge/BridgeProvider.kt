@@ -60,6 +60,16 @@ class BridgeProvider : ContentProvider() {
                     invalidate(arg)
                     Bundle()
                 }
+                // ---- Amazon Music (experimental): only what the protocol mapping covers so far.
+                "amazon.status" -> Bundle().apply {
+                    putBoolean("connected", AmazonSession.isConnected(ctx))
+                    putString("account", AmazonSession.account(ctx))
+                    putInt("version", BuildConfig.VERSION_CODE)
+                }
+                "amazon.disconnect" -> { AmazonSession.clear(ctx); Bundle() }
+                "amazon.search" -> ok(json.encodeToString(AmazonClient(ctx).searchTracks(arg ?: "")))
+                "amazon.tracks" -> ok(json.encodeToString(AmazonClient(ctx).playlistTracks(arg ?: return err("missing playlist id"))))
+                "amazon.playlists", "amazon.create", "amazon.add", "amazon.remove" -> err(AMAZON_NOT_READY)
                 else -> err("unknown method $method")
             }
         } catch (e: Exception) {
@@ -93,6 +103,7 @@ class BridgeProvider : ContentProvider() {
 
     companion object {
         const val PAGE = 400
+        const val AMAZON_NOT_READY = "not available yet: the Amazon Music connector is still being completed (see Capture traffic in Songport Bridge)"
     }
 }
 
