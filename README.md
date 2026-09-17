@@ -1,89 +1,118 @@
-# Songport YTM Bridge
+# Songport Bridge
 
-Optional companion app for [Songport](https://github.com/xlollx/Songport). It connects YouTube
-Music through the same web interface that the music.youtube.com player uses, so a Songport user
-does not need to create a Google Cloud project to sync YouTube Music playlists.
+Optional companion app for [Songport](https://github.com/xlollx/Songport). It connects music services
+that have no open API, or whose official route is heavy for a single user, through the same web
+interfaces their own players use. Songport discovers this app when installed and offers those
+services; it never includes, downloads or installs it.
 
-It is distributed **only here, as an APK**, never on Google Play. Songport itself stays on Google
-Play and uses only official APIs; it simply detects this app when installed and offers it as a way
-to connect YouTube Music. Without the Bridge, Songport keeps offering the official route (the
-user's own Google Cloud key).
+It is distributed **only here, as an APK**, never on Google Play. The Songport build on Google Play
+uses only official APIs and never mentions or links to this app.
+
+| Service | What it adds | Official route in Songport |
+|---------|--------------|----------------------------|
+| YouTube Music | playlists, liked songs, search, create, add, remove, without a Google Cloud project and without quota | YouTube Data API v3 with your own key (10,000 units/day) |
+| Amazon Music | playlists, search, create, add, remove | none: Amazon's Web API is a closed beta for approved partners |
+| Spotify | sign-in without registering a developer app | OAuth with your own client ID |
+| Apple Music | sign-in without the Apple Developer Program | MusicKit with your own developer token (99 €/year) |
 
 ## Read this before installing
 
-- This is **not an official Google API**. Using it is against the
-  [YouTube Terms of Service](https://www.youtube.com/t/terms), which forbid accessing the service
-  through anything other than the interfaces YouTube provides.
-- It **can stop working at any time**: Google changes the internal responses without notice.
+- These are **not official APIs**. Using them is against the terms of service of Google/YouTube,
+  Amazon, Spotify and Apple, which require access through the interfaces they provide.
+- They **can stop working at any time**: the services change their internal responses without notice.
   When that happens, syncs fail until a new Bridge release is published.
-- In the worst case Google could **restrict the Google account** you sign in with. Use an
-  account you can afford to lose, and prefer the official route for anything important.
-- Nothing here bypasses authentication or accesses anyone else's data: you sign in to your own
-  account, on Google's own login page, and the app reads and edits your own playlists.
+- In the worst case a service could **restrict the account** you sign in with. Use accounts you can
+  afford to lose, and prefer the official routes for anything important.
+- The app shows a disclaimer and asks you to accept it before the first sign-in, and the notice stays
+  readable from the main screen.
+- Nothing here bypasses authentication or touches anyone else's data: you sign in to your own
+  accounts, on the services' own pages, and the app reads and edits your own playlists.
+- **Your passwords are never seen or stored.** You type them only on the services' pages inside the
+  WebView. What the app keeps is the session (cookies), encrypted with the Android Keystore.
 
-## What it does
+## How each connector works
 
-| Feature | How |
-|---------|-----|
-| Sign in | A WebView opens accounts.google.com. When Google lands on music.youtube.com, the session cookies are stored encrypted (Android Keystore) in this app only. |
-| Playlists, tracks, liked songs | `youtubei/v1/browse` with the same client identity as the web player; responses are parsed by looking for known renderer names anywhere in the tree, not by fixed paths, so small layout changes do not break it. |
-| Search | `youtubei/v1/search` with the "Songs" filter. |
-| Create playlist, add, remove, like | `playlist/create`, `browse/edit_playlist`, `like/like`, `like/removelike`. |
-| Interface to Songport | A `ContentProvider` (`content://com.xlollx.songport.ytmbridge.provider`) answering `call()` methods: `status`, `playlists`, `playlistInfo`, `tracks` (paged), `search`, `create`, `add`, `remove`, `disconnect`. |
+### YouTube Music
 
-No quota, no Google Cloud project, no developer key.
+A WebView opens accounts.google.com; when Google lands on music.youtube.com the session cookies are
+stored encrypted. Requests go to `youtubei/v1/...` signed with `SAPISIDHASH`, carrying the visitor id
+and client version read from the player page so they look like the player's own, which is what keeps
+the service from refusing them. Calls are paced (and slowed further after each refusal) because the
+web interface throttles bursts of searches.
 
-### Spotify and Apple Music without developer keys
-
-Both services have official APIs that Songport supports with the user's own developer key. The Bridge
-offers a shortcut that needs none:
-
-- **Spotify**: the user signs in on accounts.spotify.com inside a WebView. When Songport needs a
-  token, the Bridge loads open.spotify.com in a hidden WebView and captures the access token the web
-  player itself requests at start-up (`/api/token`). Letting the real player make that request keeps
-  it working when Spotify changes the request's anti-abuse parameters. The token is a first-party
-  token the public Web API accepts, lasts about an hour, and is handed to Songport, which then runs
-  its normal Spotify code. Cookies never leave the Bridge.
-- **Apple Music**: the user signs in with their Apple ID on music.apple.com. The Bridge reads Apple's
-  own MusicKit developer token from the player's JavaScript and the music user token from the
-  `media-user-token` cookie, and hands both to Songport, which runs its normal Apple Music code.
-
-Both are against the services' terms, like the YouTube Music connector, and the same disclaimer
-applies.
+Endpoints: `browse` (playlists, playlist contents, liked songs), `search` with the songs filter,
+`playlist/create`, `browse/edit_playlist`, `like/like`, `like/removelike`. Responses are parsed by
+looking for known renderer names anywhere in the tree, not by fixed paths, so small layout changes do
+not break it.
 
 ### Amazon Music
 
-Amazon's official Web API is a closed beta reserved to approved partners, so the same approach is
-used: sign in on the regional web player (music.amazon.it, music.amazon.de, ...) inside a WebView,
-then call the endpoints the player itself uses (`<region>.web.skill.music.a2z.com/api/<method>`, with
-the `x-amzn-*` headers derived from `config.json`, serialised inside the request body). Methods:
-`showLibraryPlaylists`, `showLibraryPlaylist` (rows carry the entry id needed to remove a track),
-`searchCatalogTracks`, `createPlaylist`, `addTrackToPlaylist`, `removeTrackFromPlaylist`. They were
-mapped from traffic recorded with the app's own "Capture traffic" screen, which mirrors the player's
-API calls into a local file with cookies and tokens stripped; the screen stays available for when
-Amazon changes something.
+Sign-in happens on the account's regional player (music.amazon.it, music.amazon.de, ...). Requests go
+to `<region>.web.skill.music.a2z.com/api/<method>` with the `x-amzn-*` headers derived from the
+player's `config.json`, serialised inside the request body. Methods: `showLibraryPlaylists`,
+`showLibraryPlaylist` (rows carry the entry id needed to remove a track), `searchCatalogTracks`,
+`createPlaylist`, `addTrackToPlaylist`, `removeTrackFromPlaylist`.
+
+They were mapped from traffic recorded with the app's own **Capture traffic** screen, which runs the
+real player in a WebView and mirrors its API calls into a local file with cookies and tokens stripped.
+The screen stays available for when Amazon changes something: use the player normally, then share the
+file in an issue.
+
+### Spotify
+
+The user signs in on accounts.spotify.com. When Songport needs a token, the Bridge loads
+open.spotify.com in a hidden WebView and captures the access token the web player itself requests at
+start-up (`/api/token`). Letting the real player make that request keeps it working when Spotify
+changes the request's anti-abuse parameters. That token is a first-party token the public Web API
+accepts; it lasts about an hour and is handed to Songport, which then runs its normal Spotify code.
+
+### Apple Music
+
+The user signs in with their Apple ID on music.apple.com. The Bridge reads Apple's own MusicKit
+developer token from the player's JavaScript and the music user token from the `media-user-token`
+cookie, and hands both to Songport, which runs its normal Apple Music code.
+
+## Interface to Songport
+
+The Bridge is a *connector plugin*: it declares the intent action
+`com.xlollx.songport.action.CONNECTOR` and a `<meta-data>` entry
+`com.xlollx.songport.connector.authority` naming its provider, so Songport finds it without knowing
+its package name. Songport then calls the `ContentProvider`
+(`content://com.xlollx.songport.ytmbridge.provider`) with `ContentResolver.call()`:
+
+| Prefix | Methods |
+|--------|---------|
+| YouTube Music (no prefix) | `status`, `disconnect`, `playlists`, `playlistInfo`, `tracks` (paged), `search`, `create`, `add`, `remove` |
+| `amazon.` | `status`, `disconnect`, `playlists`, `tracks`, `search`, `create`, `add`, `remove` |
+| `spotify.` | `status`, `disconnect`, `token` |
+| `apple.` | `status`, `disconnect`, `tokens` |
+
+Sign-in screens are started with the actions `…ytmbridge.LOGIN`, `.AMAZON_LOGIN`, `.SPOTIFY_LOGIN`
+and `.APPLE_LOGIN`.
 
 ## Security model
 
 - The provider is exported, but **every call verifies the caller**: package name
   `com.xlollx.songport` and the SHA-256 of its signing certificate must match the list in
   `BridgeProvider.kt` (`Allowed`). Any other app gets an error and no data.
-- The session cookies never leave this app. Songport receives playlists and tracks, nothing else.
-- There is no server: the phone talks to Google directly.
-- Signing out deletes the stored session and the WebView cookies.
+- Sessions never leave this app. Songport receives playlists and tracks, or short-lived API tokens,
+  nothing else.
+- There is no server: the phone talks to the services directly.
+- Signing out of a service deletes its stored session and its cookies in the WebView; the other
+  services stay connected.
 
-A fork that rebuilds Songport with its own signing key must also rebuild the Bridge with that
-key's fingerprint in `Allowed.SHA256`, otherwise the two apps will not talk to each other.
+A fork that rebuilds Songport with its own signing key must also rebuild the Bridge with that key's
+fingerprint in `Allowed.SHA256`, otherwise the two apps will not talk to each other.
 
 ## Install
 
 1. Download the latest APK from the [Releases](https://github.com/xlollx/Songport-YTM-Bridge/releases) page.
 2. Install it (Android asks to allow installs from your browser or file manager once).
-3. Open Songport → Accounts → YouTube Music → **Connect**. The Bridge opens Google's login page;
-   after signing in you are back in Songport.
+3. Open the Bridge, accept the disclaimer and sign in to the services you want.
+4. In Songport: Accounts → **+** → pick the service → give the connector a name → **Connect**.
 
-Updates: install the new APK over the old one. The Bridge is signed with the same key as the
-Songport release builds, so updates always install over previous versions.
+Updates: install the new APK over the old one. The app is in English, Italian, French and German, with
+a language picker on its main screen.
 
 ## Building
 
@@ -100,11 +129,13 @@ the APK as a GitHub Release. To release, bump `versionCode` and `versionName` an
 
 ## When it breaks
 
-Open an issue with the Songport diagnostics report ("Share technical details" in Songport's Log
-tab) and the Bridge version. The parsing lives in `YtmClient.kt`; most fixes are a renderer name or
-a field that moved.
+Open an issue with the Songport diagnostics report ("Share technical details" in Songport's Log tab)
+and the Bridge version. For Amazon Music, the Capture traffic screen produces exactly what is needed
+to fix a changed method. Parsing lives in `YtmClient.kt` and `AmazonClient.kt`; most fixes are a
+renderer name or a field that moved.
 
 ## License
 
-GPL-3.0, see [LICENSE](LICENSE). Not affiliated with Google or YouTube. "YouTube" and
-"YouTube Music" are trademarks of Google LLC, named here only to describe compatibility.
+GPL-3.0, see [LICENSE](LICENSE). Not affiliated with Google, YouTube, Amazon, Spotify or Apple.
+"YouTube", "YouTube Music", "Amazon Music", "Spotify" and "Apple Music" are trademarks of their
+respective owners, named here only to describe compatibility.
