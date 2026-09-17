@@ -42,6 +42,7 @@ object Session {
 
     /** Forgets the session here and in the WebView, so the next login can pick another account. */
     fun clear(ctx: Context) {
+        YtmWeb.reset()
         prefs(ctx).edit().clear().apply()
         runCatching { CookieManager.getInstance().removeAllCookies(null); CookieManager.getInstance().flush() }
     }

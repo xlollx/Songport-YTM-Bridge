@@ -40,8 +40,10 @@ uses only official APIs and never mentions or links to this app.
 
 A WebView opens accounts.google.com; when Google lands on music.youtube.com the session cookies are
 stored encrypted. Requests go to `youtubei/v1/...` signed with `SAPISIDHASH`, carrying the visitor id
-and client version read from the player page so they look like the player's own, which is what keeps
-the service from refusing them. Calls are paced (and slowed further after each refusal) because the
+and client version read from the player page so they look like the player's own. They are issued as
+`fetch()` calls from a hidden WebView parked on a tiny page of music.youtube.com: Google's abuse
+detection ("Sorry..." pages, HTTP 403) keys on the client's TLS and HTTP fingerprint, which a plain
+HTTP library cannot imitate and a Chrome engine has by nature. Plain HTTP remains the fallback. Calls are paced (and slowed further after each refusal) because the
 web interface throttles bursts of searches, on two separate lanes: signed-in calls keep a gentle
 rhythm, anonymous searches a brisk one, and Songport runs a few of the latter in parallel. Catalogue searches run **anonymously** (no cookies, an
 anonymous visitor id): they do not need the account, and the account's own quota is what a long sync

@@ -53,27 +53,29 @@ class YtmClient(private val ctx: Context) {
             ),
             *body.toList().toTypedArray(),
         )
+        val path = "/youtubei/v1/$endpoint?alt=json&prettyPrint=false$query"
+        // The headers the player sends with its own calls. Cookies and Origin are the browser's
+        // business on the WebView route; on plain HTTP they are added below.
+        val apiHeaders = linkedMapOf(
+            "Content-Type" to "application/json",
+            "X-Origin" to Session.ORIGIN,
+            "X-YouTube-Client-Name" to "67",
+            "X-YouTube-Client-Version" to v.clientVersion,
+            "Accept-Language" to "en-US,en;q=0.9",
+        ).apply {
+            v.visitorData?.let { put("X-Goog-Visitor-Id", it) }
+            if (ck != null) { put("Authorization", Session.authorization(ck)); put("X-Goog-AuthUser", "0") }
+        }
+        val body = payload.toString()
         val req = Request.Builder()
-            .url("${Session.ORIGIN}/youtubei/v1/$endpoint?alt=json&prettyPrint=false$query")
-            .post(payload.toString().toRequestBody(JSON_TYPE))
-            .apply {
-                if (ck != null) {
-                    header("Cookie", ck)
-                    header("Authorization", Session.authorization(ck))
-                    header("X-Goog-AuthUser", "0")
-                } else {
-                    // Consent cookie only, as a visitor who dismissed the cookie banner.
-                    header("Cookie", ANON_COOKIES)
-                }
-            }
-            .header("X-Origin", Session.ORIGIN)
+            .url(Session.ORIGIN + path)
+            .post(body.toRequestBody(JSON_TYPE))
+            .apply { apiHeaders.forEach { (k, v2) -> header(k, v2) } }
+            // Consent cookie only, as a visitor who dismissed the cookie banner.
+            .header("Cookie", ck ?: ANON_COOKIES)
             .header("Origin", Session.ORIGIN)
             .header("Referer", "${Session.ORIGIN}/")
-            .header("X-YouTube-Client-Name", "67")
-            .header("X-YouTube-Client-Version", v.clientVersion)
-            .apply { v.visitorData?.let { header("X-Goog-Visitor-Id", it) } }
             .header("User-Agent", USER_AGENT)
-            .header("Accept-Language", "en-US,en;q=0.9")
             .build()
         // The web interface throttles bursts (403/429): pace the calls, slow down further after each
         // refusal, and retry once after a short pause. Longer waits are Songport's job, which shows
@@ -83,12 +85,16 @@ class YtmClient(private val ctx: Context) {
         while (true) {
             lane.pace()
             val t0 = System.currentTimeMillis()
-            http.newCall(req).execute().use { resp ->
-                val text = resp.body?.string() ?: ""
-                Stats.record(auth, resp.code, System.currentTimeMillis() - t0, text)
+            // Chrome's fingerprint through the WebView keeps Google's abuse page away; plain HTTP is
+            // the fallback when the engine cannot start in this process.
+            val viaWeb = YtmWeb.usable()
+            val r = if (viaWeb) runCatching { YtmWeb.post(ctx, path, body, apiHeaders, credentials = ck != null) }.getOrNull() else null
+            val (code, text) = if (r != null) r.code to r.body else http.newCall(req).execute().use { resp -> resp.code to (resp.body?.string() ?: "") }
+            run {
+                Stats.record(auth, code, System.currentTimeMillis() - t0, text, viaWeb && r != null)
                 when {
-                    resp.code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
-                    resp.code == 403 || resp.code == 429 -> {
+                    code == 401 -> throw BridgeException("YouTube Music rejected the session (401): sign in again in Songport Bridge")
+                    code == 403 || code == 429 -> {
                         lane.slowDown()
                         // A refusal can also mean a stale visitor id: refresh it before the retry.
                         invalidateVisitor(auth)
@@ -97,16 +103,16 @@ class YtmClient(private val ctx: Context) {
                         if (auth && attempt < 1) { Thread.sleep(3_000); attempt++ }
                         else {
                             val reason = Regex(""""message"\s*:\s*"([^"]{1,160})"""").find(text)?.groupValues?.get(1)
-                                ?: text.replace(Regex("\\s+"), " ").trim().take(120).ifBlank { null }
+                                ?: if (text.contains("<title>Sorry", true)) "Google's abuse detection page" else text.replace(Regex("\\s+"), " ").trim().take(120).ifBlank { null }
                             val who = if (auth) "signed-in" else "anonymous"
                             throw Throttled(
-                                "YouTube Music refused the $who request (${resp.code}): too many requests" +
+                                "YouTube Music refused the $who request ($code): too many requests" +
                                     (reason?.let { " [$it]" } ?: "") +
                                     ". Songport will wait and retry; if it persists, sign in again in Songport Bridge",
                             )
                         }
                     }
-                    !resp.isSuccessful -> throw BridgeException("YouTube Music ${resp.code}: ${text.take(200)}")
+                    code !in 200..299 -> throw BridgeException("YouTube Music $code: ${text.take(200)}")
                     else -> { lane.speedUp(); return parseJson(text) }
                 }
             }
@@ -180,23 +186,24 @@ class YtmClient(private val ctx: Context) {
 
     /** Counters for the diagnostics report: what the two routes are doing, nothing about content. */
     object Stats {
-        private var calls = 0; private var ok = 0; private var refusedAnon = 0; private var refusedAuth = 0
+        private var calls = 0; private var ok = 0; private var refusedAnon = 0; private var refusedAuth = 0; private var viaWeb = 0
         private var okMs = 0L; private var slowestMs = 0L
         private var lastAnon: String? = null; private var lastAuth: String? = null
 
-        @Synchronized fun record(auth: Boolean, code: Int, ms: Long, body: String) {
+        @Synchronized fun record(auth: Boolean, code: Int, ms: Long, body: String, web: Boolean) {
             calls++
+            if (web) viaWeb++
             if (code in 200..299) { ok++; okMs += ms; if (ms > slowestMs) slowestMs = ms }
             if (code == 403 || code == 429) {
                 // The service's own words, trimmed: they tell a rate limit from a rejected request.
                 val why = Regex(""""message"\s*:\s*"([^"]{1,120})"""").find(body)?.groupValues?.get(1)
-                    ?: body.replace(Regex("\\s+"), " ").trim().take(100).ifBlank { "(empty body)" }
+                    ?: if (body.contains("<title>Sorry", true)) "Google abuse page" else body.replace(Regex("\\s+"), " ").trim().take(100).ifBlank { "(empty body)" }
                 if (auth) { refusedAuth++; lastAuth = "$code $why" } else { refusedAnon++; lastAnon = "$code $why" }
             }
         }
 
         @Synchronized fun summary(): String =
-            "calls $calls, ok $ok, avg ok ${if (ok == 0) 0 else okMs / ok} ms, slowest $slowestMs ms, " +
+            "calls $calls ($viaWeb via browser engine), ok $ok, avg ok ${if (ok == 0) 0 else okMs / ok} ms, slowest $slowestMs ms, " +
                 "refused anonymous $refusedAnon" + (lastAnon?.let { " (last: $it)" } ?: "") +
                 ", refused signed-in $refusedAuth" + (lastAuth?.let { " (last: $it)" } ?: "") +
                 ", pace anonymous ${ANON_LANE.current} ms, pace signed-in ${SESSION_LANE.current} ms" +
