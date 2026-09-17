@@ -26,18 +26,29 @@ import java.util.concurrent.TimeUnit
  */
 class AmazonClient(private val ctx: Context) {
 
-    class Config(val raw: JsonObject) {
-        val accessToken get() = raw["accessToken"].str.orEmpty()
-        val deviceId get() = raw["deviceId"].str.orEmpty()
-        val sessionId get() = raw["sessionId"].str.orEmpty()
-        val version get() = raw["version"].str.orEmpty()
-        val csrfToken get() = raw["csrf"]["token"].str.orEmpty()
-        val csrfTs get() = raw["csrf"]["ts"].asText()
-        val csrfRnd get() = raw["csrf"]["rnd"].asText()
+    /**
+     * The player's configuration. Two sources carry it and name the fields differently: the page of
+     * the signed-in player (`amznMusic.appConfig = {...}`, the only one that carries the customer's
+     * access token) and `/config.json` (served anonymously, enough to browse the catalogue but
+     * without a token). Fields are therefore looked up under every name seen so far, and
+     * [sessionCookie] fills the session id from the `session-id` cookie, which is where the web
+     * player itself takes it from.
+     */
+    class Config(val raw: JsonObject, private val sessionCookie: String? = null) {
+        val accessToken get() = (raw["accessToken"].str ?: raw["tokens"]["accessToken"].str ?: raw["access_token"].str).orEmpty()
+        val deviceId get() = (raw["deviceId"].str ?: raw["deviceID"].str).orEmpty()
+        val sessionId get() = (raw["sessionId"].str ?: raw["sessionID"].str ?: sessionCookie).orEmpty()
+        val version get() = (raw["version"].str ?: raw["clientVersion"].str ?: raw["serverInfo"]["version"].str).orEmpty()
+        val csrfToken get() = (raw["csrf"]["token"].str ?: raw["CSRFTokenConfig"]["csrf_token"].str).orEmpty()
+        val csrfTs get() = (raw["csrf"]["ts"] ?: raw["CSRFTokenConfig"]["csrf_ts"]).asText()
+        val csrfRnd get() = (raw["csrf"]["rnd"] ?: raw["CSRFTokenConfig"]["csrf_rnd"]).asText()
         val customerId get() = raw["customerId"].str
         val customerName get() = raw["customerName"].str ?: raw["displayName"].str ?: raw["customerDisplayName"].str
-        /** The player hands out an access token only to a signed-in session; the ids may be named differently. */
+            ?: raw["customer"]["name"].str ?: raw["userName"].str
+        /** The player hands out an access token only to a signed-in session. */
         val signedIn get() = accessToken.isNotBlank()
+        /** Names of the fields found, for the connection test: never a value, only what is there. */
+        val fields: List<String> get() = raw.keys.sorted()
     }
 
     private val http = OkHttpClient.Builder()
@@ -48,26 +59,82 @@ class AmazonClient(private val ctx: Context) {
     private fun domain(): String = AmazonSession.domain(ctx) ?: throw BridgeException("not connected")
     private fun cookies(): String = AmazonSession.cookies(ctx) ?: throw BridgeException("not connected")
 
-    /** Fetches the player configuration with the session cookies. Cached for ten minutes. */
+    /**
+     * The player configuration for the stored session. The page of the signed-in player is the only
+     * source that carries the access token, so it comes first; `/config.json` is the fallback and is
+     * enough for the anonymous parts. Cached for ten minutes.
+     */
     fun config(domain: String = domain(), cookies: String = cookies()): Config {
-        cachedConfig?.let { (at, c) -> if (System.currentTimeMillis() - at < 600_000) return c }
+        cachedConfig?.let { (at, c) -> if (System.currentTimeMillis() - at < 600_000 && c.signedIn) return c }
+        val page = runCatching { pageConfig(domain, cookies) }.getOrNull()
+        val c = page?.takeIf { it.signedIn }
+            ?: runCatching { jsonConfig(domain, cookies) }.getOrNull()?.takeIf { it.signedIn }
+            ?: page
+            ?: jsonConfig(domain, cookies)
+        cachedConfig = System.currentTimeMillis() to c
+        return c
+    }
+
+    /** `amznMusic.appConfig = {...};` inlined in the page the player is served, read with the session. */
+    private fun pageConfig(domain: String, cookies: String): Config? {
+        val html = get("https://$domain/", cookies, "text/html,application/xhtml+xml")
+        // The name also appears in the player's own code: take the assignment, not every mention.
+        for (m in Regex(Regex.escape(APP_CONFIG) + """\s*=\s*\{""").findAll(html)) {
+            val obj = braced(html, m.range.last) ?: continue
+            val j = runCatching { parseJson(obj) }.getOrNull() as? JsonObject ?: continue
+            return Config(j, sessionCookie(cookies))
+        }
+        return null
+    }
+
+    private fun jsonConfig(domain: String, cookies: String): Config {
+        val text = get("https://$domain/config.json", cookies, "*/*")
+        val j = parseJson(text) as? JsonObject ?: throw BridgeException("Amazon Music config: unexpected response")
+        return Config(j, sessionCookie(cookies))
+    }
+
+    private fun get(url: String, cookies: String, accept: String): String {
         val req = Request.Builder()
-            .url("https://$domain/config.json")
+            .url(url)
             .header("Cookie", cookies)
             .header("User-Agent", USER_AGENT)
-            .header("Accept", "*/*")
+            .header("Accept", accept)
             .header("Accept-Language", "en-US,en;q=0.9")
-            .header("Referer", "https://$domain/")
+            .header("Referer", "https://${url.substringAfter("https://").substringBefore('/')}/")
             .build()
         http.newCall(req).execute().use { resp ->
             val text = resp.body?.string() ?: ""
-            if (!resp.isSuccessful) throw BridgeException("Amazon Music config ${resp.code}: ${text.take(200)}")
-            val j = parseJson(text) as? JsonObject ?: throw BridgeException("Amazon Music config: unexpected response")
-            val c = Config(j)
-            cachedConfig = System.currentTimeMillis() to c
-            return c
+            val what = url.substringAfterLast('/').ifBlank { "player page" }
+            if (!resp.isSuccessful) throw BridgeException("Amazon Music ${resp.code} on $what: ${text.take(160)}")
+            return text
         }
     }
+
+    /** The whole `{...}` starting at [from], counting braces outside of strings. */
+    private fun braced(s: String, from: Int): String? {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (i in from until s.length) {
+            val c = s[i]
+            when {
+                escaped -> escaped = false
+                c == '\\' && inString -> escaped = true
+                c == '"' -> inString = !inString
+                inString -> {}
+                c == '{' -> depth++
+                c == '}' -> { depth--; if (depth == 0) return s.substring(from, i + 1) }
+            }
+        }
+        return null
+    }
+
+    /** The web player sends the `session-id` cookie as `x-amzn-session-id`. */
+    private fun sessionCookie(cookies: String): String? = cookies.split(';')
+        .map { it.trim() }
+        .firstOrNull { it.startsWith("session-id=") }
+        ?.substringAfter('=')
+        ?.takeIf { it.isNotBlank() }
 
     private fun skillEndpoint(domain: String): String =
         "https://${(DOMAINS[domain]?.region ?: "EU").lowercase()}.web.skill.music.a2z.com"
@@ -264,7 +331,10 @@ class AmazonClient(private val ctx: Context) {
         private const val USER_LEVEL = "LIBRARY_MEMBER"
         private val TEXT_TYPE = "text/plain;charset=UTF-8".toMediaType()
         private const val HD = "hd-supported,uhd-supported"
+        /** Where the signed-in player inlines its configuration in the page. */
+        private const val APP_CONFIG = "amznMusic.appConfig"
         @Volatile private var cachedConfig: Pair<Long, Config>? = null
+        fun forgetConfig() { cachedConfig = null }
 
         /** Regional web player domains and the API region each one talks to. */
         val DOMAINS: Map<String, Region> = mapOf(

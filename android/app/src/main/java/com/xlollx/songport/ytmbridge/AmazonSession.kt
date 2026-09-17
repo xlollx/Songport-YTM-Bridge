@@ -41,6 +41,7 @@ object AmazonSession {
     /** Forgets the session here and the Amazon cookies in the WebView. */
     fun clear(ctx: Context) {
         prefs(ctx).edit().clear().apply()
+        AmazonClient.forgetConfig()
         runCatching {
             val cm = CookieManager.getInstance()
             // Only Amazon cookies: the YouTube Music session must survive.

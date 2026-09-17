@@ -54,9 +54,13 @@ not break it.
 
 ### Amazon Music
 
-Sign-in happens on the account's regional player (music.amazon.it, music.amazon.de, ...). Requests go
-to `<region>.web.skill.music.a2z.com/api/<method>` with the `x-amzn-*` headers derived from the
-player's `config.json`, serialised inside the request body. Methods: `showLibraryPlaylists`,
+Sign-in happens on the account's regional player (music.amazon.it, music.amazon.de, ...); the domain
+kept is the one whose cookie jar actually holds the token, since Amazon signs you in on amazon.&lt;tld&gt;
+and then redirects. The player configuration is read from `amznMusic.appConfig`, inlined in the page
+served to a signed-in session: that is where the access token lives. `/config.json` is only a
+fallback, because Amazon serves it anonymously and it carries no token. Requests then go to
+`<region>.web.skill.music.a2z.com/api/<method>` with the `x-amzn-*` headers built from that
+configuration, serialised inside the request body. Methods: `showLibraryPlaylists`,
 `showLibraryPlaylist` (rows carry the entry id needed to remove a track), `searchCatalogTracks`,
 `createPlaylist`, `addTrackToPlaylist`, `removeTrackFromPlaylist`.
 

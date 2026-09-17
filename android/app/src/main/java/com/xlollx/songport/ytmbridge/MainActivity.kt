@@ -212,8 +212,15 @@ private fun AmazonCard(version: Int, onChanged: () -> Unit) {
                         thread {
                             val text = try {
                                 val client = AmazonClient(app)
+                                // Un test parte sempre da una configurazione fresca, mai da quella in cache.
+                                AmazonClient.forgetConfig()
                                 val cfg = client.config()
-                                if (!cfg.signedIn) throw BridgeException("config.json has no access token: sign in again")
+                                // I nomi dei campi (mai il contenuto) dicono subito se la pagina del player
+                                // e' stata letta da collegati o se Amazon ha risposto come a un anonimo.
+                                if (!cfg.signedIn) throw BridgeException(
+                                    "no access token in the player configuration: sign in again. Fields: " +
+                                        cfg.fields.joinToString(", ").take(300).ifBlank { "none" },
+                                )
                                 val found = client.searchTracks("Daft Punk", cfg)
                                 app.getString(R.string.amazon_test_ok, cfg.customerName ?: cfg.customerId ?: "?", found.size)
                             } catch (e: Exception) {

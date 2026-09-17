@@ -79,20 +79,24 @@ class AmazonLoginActivity : ComponentActivity() {
     /** Stores the session if the cookies are there; with [manual] it also reports when they are not. */
     private fun capture(manual: Boolean = false) {
         if (done) return
-        val host = Uri.parse(web.url ?: "").host?.takeIf { AmazonClient.isMusicDomain(it) }
-            ?: AmazonClient.DOMAINS.keys.firstOrNull { CookieManager.getInstance().getCookie("https://$it") != null }
-        if (host == null) {
+        val cm = CookieManager.getInstance()
+        // Amazon sends every account to its own regional site, and the sign-in itself happens on
+        // amazon.<tld>, not on the music one: the domain to keep is the one whose cookie jar really
+        // holds the token, starting from the site the player is showing right now.
+        val current = Uri.parse(web.url ?: "").host?.takeIf { AmazonClient.isMusicDomain(it) }
+        val hit = (listOfNotNull(current) + AmazonClient.DOMAINS.keys).distinct()
+            .map { it to cm.getCookie("https://$it") }
+            .firstOrNull { (_, ck) -> AmazonSession.looksSignedIn(ck) }
+        if (hit == null) {
             if (manual) Toast.makeText(this, R.string.login_not_signed_in, Toast.LENGTH_LONG).show()
             return
         }
-        val cookies = CookieManager.getInstance().getCookie("https://$host")
-        if (cookies == null || !AmazonSession.looksSignedIn(cookies)) {
-            if (manual) Toast.makeText(this, R.string.login_not_signed_in, Toast.LENGTH_LONG).show()
-            return
-        }
+        val host = hit.first
+        val cookies = hit.second ?: return
         done = true
         val app = applicationContext
         AmazonSession.save(app, cookies, host, null)
+        AmazonClient.forgetConfig()
         setResult(RESULT_OK)
         finish()
         // The display name comes from the player configuration; a failure here is not a failed login.
