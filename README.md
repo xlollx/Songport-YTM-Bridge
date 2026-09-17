@@ -33,6 +33,24 @@ user's own Google Cloud key).
 
 No quota, no Google Cloud project, no developer key.
 
+### Spotify and Apple Music without developer keys
+
+Both services have official APIs that Songport supports with the user's own developer key. The Bridge
+offers a shortcut that needs none:
+
+- **Spotify**: the user signs in on accounts.spotify.com inside a WebView. When Songport needs a
+  token, the Bridge loads open.spotify.com in a hidden WebView and captures the access token the web
+  player itself requests at start-up (`/api/token`). Letting the real player make that request keeps
+  it working when Spotify changes the request's anti-abuse parameters. The token is a first-party
+  token the public Web API accepts, lasts about an hour, and is handed to Songport, which then runs
+  its normal Spotify code. Cookies never leave the Bridge.
+- **Apple Music**: the user signs in with their Apple ID on music.apple.com. The Bridge reads Apple's
+  own MusicKit developer token from the player's JavaScript and the music user token from the
+  `media-user-token` cookie, and hands both to Songport, which runs its normal Apple Music code.
+
+Both are against the services' terms, like the YouTube Music connector, and the same disclaimer
+applies.
+
 ### Amazon Music (experimental)
 
 Amazon's official Web API is a closed beta reserved to approved partners, so the same approach is

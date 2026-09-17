@@ -20,6 +20,12 @@
     <string name="disclaimer_body">Songport Bridge ist ein unabhängiges Open-Source-Projekt. Es ist weder mit Google, YouTube, Amazon noch mit einem anderen Musikdienst verbunden, von ihnen unterstützt oder autorisiert.\n\nEs kommuniziert mit diesen Diensten über dieselben Schnittstellen wie deren eigene Web-Player, nicht über eine offizielle API. Das verstößt gegen deren Nutzungsbedingungen. Es kann jederzeit aufhören zu funktionieren, und der Dienst kann das Konto, mit dem du dich anmeldest, einschränken, sperren oder schließen.\n\nDie Software wird \"wie besehen\" ohne jegliche Gewährleistung bereitgestellt. Indem du fortfährst, akzeptierst du, sie vollständig auf eigenes Risiko zu nutzen, und dass der Entwickler keinerlei Verantwortung oder Haftung für Folgen übernimmt, einschließlich Einschränkungen deiner Konten oder Datenverlust.</string>
     <string name="disclaimer_accept">Ich habe verstanden und akzeptiere</string>
     <string name="disclaimer_review">Haftungsausschluss lesen</string>
+    <string name="spotify_title">Spotify</string>
+    <string name="spotify_intro">Melde dich auf der Spotify-Seite an, statt eine Entwickler-App anzulegen. Die Bridge nutzt die Sitzung des Web-Players weiter und gibt Songport ein kurzlebiges Token; Passwort und Cookies bleiben hier.</string>
+    <string name="spotify_connect">Bei Spotify anmelden</string>
+    <string name="apple_title">Apple Music</string>
+    <string name="apple_intro">Melde dich mit deiner Apple-ID auf music.apple.com an, statt für das Apple Developer Program zu zahlen. Die Bridge liest die Tokens des Web-Players und gibt sie an Songport weiter; dein Passwort bleibt hier.</string>
+    <string name="apple_connect">Bei Apple Music anmelden</string>
     <string name="warning_title">Bitte zuerst lesen</string>
     <string name="warning_body">Dies ist keine offizielle Google-API. Ihre Nutzung verstößt gegen die YouTube-Nutzungsbedingungen, sie kann jederzeit aufhören zu funktionieren, wenn Google etwas ändert, und im schlimmsten Fall könnte Google das Konto einschränken, mit dem du dich anmeldest. Nutze sie auf eigenes Risiko, am besten mit einem Konto, dessen Verlust du verkraften kannst. Der offizielle Weg (dein eigener Google Cloud-Schlüssel) bleibt in Songport verfügbar.</string>
     <string name="status_connected">Verbunden als %1$s</string>

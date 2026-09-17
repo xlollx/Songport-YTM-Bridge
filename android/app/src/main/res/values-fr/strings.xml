@@ -20,6 +20,12 @@
     <string name="disclaimer_body">Songport Bridge est un projet indépendant et open source. Il n\'est ni affilié, ni approuvé, ni lié à Google, YouTube, Amazon ou à un quelconque service musical.\n\nIl communique avec ces services par les mêmes interfaces que leurs propres lecteurs web, et non par une API officielle. Cela est contraire à leurs conditions d\'utilisation. Il peut cesser de fonctionner à tout moment, et le service peut limiter, suspendre ou fermer le compte avec lequel vous vous connectez.\n\nLe logiciel est fourni \"tel quel\", sans aucune garantie. En continuant, vous acceptez de l\'utiliser entièrement à vos risques et que le développeur n\'assume aucune responsabilité pour quelque conséquence que ce soit, y compris des restrictions sur vos comptes ou une perte de données.</string>
     <string name="disclaimer_accept">J\'ai compris et j\'accepte</string>
     <string name="disclaimer_review">Lire l\'avertissement</string>
+    <string name="spotify_title">Spotify</string>
+    <string name="spotify_intro">Connectez-vous sur la page de Spotify au lieu de créer une application développeur. Le Bridge réutilise la session du lecteur web et transmet à Songport un jeton de courte durée ; votre mot de passe et vos cookies restent ici.</string>
+    <string name="spotify_connect">Se connecter à Spotify</string>
+    <string name="apple_title">Apple Music</string>
+    <string name="apple_intro">Connectez-vous avec votre identifiant Apple sur music.apple.com au lieu de payer l\'Apple Developer Program. Le Bridge lit les jetons du lecteur web et les transmet à Songport ; votre mot de passe reste ici.</string>
+    <string name="apple_connect">Se connecter à Apple Music</string>
     <string name="warning_title">À lire avant tout</string>
     <string name="warning_body">Ce n\'est pas une API Google officielle. Son utilisation est contraire aux conditions d\'utilisation de YouTube, elle peut cesser de fonctionner dès que Google change quelque chose et, dans le pire des cas, Google pourrait restreindre le compte avec lequel vous vous connectez. Utilisez-la à vos risques, idéalement avec un compte que vous pouvez vous permettre de perdre. La voie officielle (votre propre clé Google Cloud) reste disponible dans Songport.</string>
     <string name="status_connected">Connecté en tant que %1$s</string>

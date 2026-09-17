@@ -109,6 +109,17 @@ private fun Screen() {
             }
         }
 
+        WebServiceCard(
+            title = stringResource(R.string.spotify_title), intro = stringResource(R.string.spotify_intro),
+            connectLabel = stringResource(R.string.spotify_connect), session = SpotifyBridge.session,
+            loginIntent = WebLoginActivity.intent(ctx, WebLoginActivity.SPOTIFY), version = version, onChanged = { version++ },
+        )
+        WebServiceCard(
+            title = stringResource(R.string.apple_title), intro = stringResource(R.string.apple_intro),
+            connectLabel = stringResource(R.string.apple_connect), session = AppleBridge.session,
+            loginIntent = WebLoginActivity.intent(ctx, WebLoginActivity.APPLE), version = version, onChanged = { version++ },
+        )
+
         AmazonCard(version, onChanged = { version++ })
 
         Spacer(Modifier.height(4.dp))
@@ -124,6 +135,32 @@ private fun Screen() {
             Text(stringResource(R.string.source_code))
         }
         Text(stringResource(R.string.version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A web-session service (Spotify, Apple Music): status, sign in, sign out. */
+@Composable
+private fun WebServiceCard(
+    title: String, intro: String, connectLabel: String, session: WebSession, loginIntent: Intent,
+    version: Int, onChanged: () -> Unit,
+) {
+    val ctx = LocalContext.current
+    val login = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { onChanged() }
+    val connected = remember(version) { session.isConnected(ctx) }
+    val account = remember(version) { session.account(ctx) }
+    Card {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(intro, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (connected) stringResource(R.string.status_connected, account ?: title) else stringResource(R.string.status_disconnected),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (connected) OutlinedButton(onClick = { session.clear(ctx); onChanged() }) { Text(stringResource(R.string.disconnect)) }
+                else Button(onClick = { login.launch(loginIntent) }) { Text(connectLabel) }
+            }
+        }
     }
 }
 

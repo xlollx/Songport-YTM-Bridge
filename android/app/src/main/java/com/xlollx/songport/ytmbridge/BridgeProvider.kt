@@ -70,6 +70,43 @@ class BridgeProvider : ContentProvider() {
                 "amazon.search" -> ok(json.encodeToString(AmazonClient(ctx).searchTracks(arg ?: "")))
                 "amazon.tracks" -> ok(json.encodeToString(AmazonClient(ctx).playlistTracks(arg ?: return err("missing playlist id"))))
                 "amazon.playlists", "amazon.create", "amazon.add", "amazon.remove" -> err(AMAZON_NOT_READY)
+                // ---- Spotify web session: Songport gets a short-lived Web API token, never the cookies.
+                "spotify.status" -> Bundle().apply {
+                    putBoolean("connected", SpotifyBridge.session.isConnected(ctx))
+                    putString("account", SpotifyBridge.session.account(ctx))
+                    putString("userId", SpotifyBridge.session.get(ctx, "userId"))
+                    putInt("version", BuildConfig.VERSION_CODE)
+                }
+                "spotify.disconnect" -> { SpotifyBridge.session.clear(ctx); Bundle() }
+                "spotify.token" -> {
+                    val t = SpotifyBridge.token(ctx)
+                    if (SpotifyBridge.session.get(ctx, "userId") == null) runCatching {
+                        val (id, name) = SpotifyBridge.accountInfo(ctx)
+                        id?.let { SpotifyBridge.session.put(ctx, "userId", it) }
+                        SpotifyBridge.session.save(ctx, SpotifyBridge.session.cookies(ctx) ?: "", name)
+                    }
+                    Bundle().apply {
+                        putString("token", t.value)
+                        putLong("expiresAt", t.expiresAt)
+                        putString("userId", SpotifyBridge.session.get(ctx, "userId"))
+                        putString("account", SpotifyBridge.session.account(ctx))
+                    }
+                }
+                // ---- Apple Music web session: Apple's web developer token plus the user's music user token.
+                "apple.status" -> Bundle().apply {
+                    putBoolean("connected", AppleBridge.session.isConnected(ctx))
+                    putString("account", AppleBridge.session.account(ctx))
+                    putInt("version", BuildConfig.VERSION_CODE)
+                }
+                "apple.disconnect" -> { AppleBridge.session.clear(ctx); Bundle() }
+                "apple.tokens" -> {
+                    val user = AppleBridge.userToken(AppleBridge.session.cookies(ctx)) ?: return err("not connected")
+                    Bundle().apply {
+                        putString("developerToken", AppleBridge.developerToken(ctx))
+                        putString("userToken", user)
+                        putString("storefront", runCatching { AppleBridge.storefront(ctx) }.getOrNull())
+                    }
+                }
                 else -> err("unknown method $method")
             }
         } catch (e: Exception) {
