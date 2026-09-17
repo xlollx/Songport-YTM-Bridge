@@ -48,6 +48,10 @@ class WebLoginActivity : ComponentActivity() {
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
+            // Spotify refuses its web player to anything whose user agent says "wv" (a WebView) and
+            // shows "Playback disabled - incompatible browser". A desktop identity avoids that page;
+            // Apple's pages work with the default one.
+            if (service == SPOTIFY) userAgentString = SpotifyBridge.USER_AGENT
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -82,14 +86,18 @@ class WebLoginActivity : ComponentActivity() {
         if (!ok) return
         done = true
         val sess = if (service == APPLE) AppleBridge.session else SpotifyBridge.session
-        sess.save(applicationContext, cookies, null)
+        val app = applicationContext
+        sess.save(app, cookies, null)
+        // Close at once: the sign-in is done. The account name needs a token or an API call, which can
+        // take a while, so it is fetched afterwards and shown when the screen refreshes.
+        setResult(RESULT_OK)
+        finish()
         thread {
             val account = runCatching {
-                if (service == APPLE) AppleBridge.storefront(applicationContext)?.let { "Apple Music (${it.uppercase()})" }
-                else SpotifyBridge.accountInfo(applicationContext).let { (id, name) -> id?.let { sess.put(applicationContext, "userId", it) }; name }
+                if (service == APPLE) AppleBridge.storefront(app)?.let { "Apple Music (${it.uppercase()})" }
+                else SpotifyBridge.accountInfo(app).let { (id, name) -> id?.let { sess.put(app, "userId", it) }; name }
             }.getOrNull()
-            sess.save(applicationContext, cookies, account)
-            runOnUiThread { setResult(RESULT_OK); finish() }
+            if (account != null) sess.save(app, cookies, account)
         }
     }
 

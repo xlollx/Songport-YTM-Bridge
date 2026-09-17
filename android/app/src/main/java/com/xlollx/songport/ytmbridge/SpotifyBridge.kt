@@ -28,6 +28,9 @@ import java.util.concurrent.TimeUnit
 object SpotifyBridge {
     val session = WebSession("spotify", listOf("open.spotify.com", "accounts.spotify.com", "www.spotify.com", "spotify.com"))
     const val LOGIN_URL = "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
+    /** Desktop Chrome: the web player refuses any user agent marked as a WebView ("wv"). */
+    const val USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
     class Token(val value: String, val expiresAt: Long)
 
@@ -82,7 +85,7 @@ object SpotifyBridge {
             try {
                 val w = WebView(app)
                 web = w
-                w.settings.apply { javaScriptEnabled = true; domStorageEnabled = true }
+                w.settings.apply { javaScriptEnabled = true; domStorageEnabled = true; userAgentString = USER_AGENT }
                 w.addJavascriptInterface(sink, "SpBridge")
                 val early = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
                 if (early) WebViewCompat.addDocumentStartJavaScript(w, HOOK, setOf("*"))
@@ -103,7 +106,10 @@ object SpotifyBridge {
         }
         latch.await(35, TimeUnit.SECONDS)
         main.post { runCatching { web?.stopLoading(); web?.destroy() } }
-        return result ?: throw BridgeException("Spotify token not obtained" + (error?.let { ": $it" } ?: " (timeout)"))
+        return result ?: throw BridgeException(
+            "Spotify did not hand out a token" + (error?.let { ": $it" } ?: " (timed out)") +
+                ". Open Songport Bridge and sign in to Spotify again."
+        )
     }
 
     // The web player requests its token at start-up; mirror that response to SpBridge.token.
