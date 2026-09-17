@@ -108,12 +108,10 @@ class AmazonClient(private val ctx: Context) {
             .header("Accept-Language", "en-US,en;q=0.9")
             .header("Referer", "https://${url.substringAfter("https://").substringBefore('/')}/")
             .build()
-        http.newCall(req).execute().use { resp ->
-            val text = resp.body?.string() ?: ""
-            val what = url.substringAfterLast('/').ifBlank { "player page" }
-            if (!resp.isSuccessful) throw BridgeException("Amazon Music ${resp.code} on $what: ${text.take(160)}")
-            return text
-        }
+        val (code, text) = send(req)
+        val what = url.substringAfterLast('/').ifBlank { "player page" }
+        if (code !in 200..299) throw BridgeException("Amazon Music $code on $what: ${text.take(160)}")
+        return text
     }
 
     /** The whole `{...}` starting at [from], counting braces outside of strings. */
@@ -141,6 +139,24 @@ class AmazonClient(private val ctx: Context) {
         .firstOrNull { it.startsWith("session-id=") }
         ?.substringAfter('=')
         ?.takeIf { it.isNotBlank() }
+
+    /**
+     * One HTTP exchange, retried on transport errors. A phone switching between Wi-Fi and mobile data
+     * fails a lookup or a connection for a moment ("Unable to resolve host"): that is not Amazon
+     * answering, so the call is repeated after a short pause before giving up.
+     */
+    private fun send(req: Request): Pair<Int, String> {
+        var attempt = 0
+        while (true) {
+            try {
+                http.newCall(req).execute().use { resp -> return resp.code to (resp.body?.string() ?: "") }
+            } catch (e: java.io.IOException) {
+                if (attempt >= 2) throw BridgeException("Amazon Music unreachable: ${e.message ?: e.javaClass.simpleName}")
+                Thread.sleep(if (attempt == 0) 2_000 else 5_000)
+                attempt++
+            }
+        }
+    }
 
     private fun skillEndpoint(domain: String): String =
         "https://${(DOMAINS[domain]?.region ?: "EU").lowercase()}.web.skill.music.a2z.com"
@@ -222,16 +238,14 @@ class AmazonClient(private val ctx: Context) {
             .header("Accept", "*/*")
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
-        http.newCall(req).execute().use { resp ->
-            val text = resp.body?.string() ?: ""
-            if (resp.code == 401 || resp.code == 403) {
-                cachedConfig = null
-                AmazonBridge.forget()
-                throw BridgeException("Amazon Music rejected the session (${resp.code}): sign in again in Songport Bridge")
-            }
-            if (!resp.isSuccessful) throw BridgeException("Amazon Music ${resp.code}: ${text.take(200)}")
-            return parseJson(text)
+        val (code, text) = send(req)
+        if (code == 401 || code == 403) {
+            cachedConfig = null
+            AmazonBridge.forget()
+            throw BridgeException("Amazon Music rejected the session ($code): sign in again in Songport Bridge")
         }
+        if (code !in 200..299) throw BridgeException("Amazon Music $code: ${text.take(200)}")
+        return parseJson(text)
     }
 
     // ------------------------------------------------------------------ library
