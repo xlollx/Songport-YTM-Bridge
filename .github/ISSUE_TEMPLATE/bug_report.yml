@@ -1,0 +1,42 @@
+name: Bug report
+description: A connector stopped working or misbehaves. Italiano va benissimo.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The services change their web interfaces without notice, so most Bridge issues are "it worked
+        yesterday". What fixes them fast is Songport's **technical details report** (Log tab → *Share
+        technical details*): it includes the plugin statistics and the last error messages. For Amazon
+        Music, the **Capture traffic** screen in the Bridge produces a file with the player's calls
+        (cookies and tokens stripped): attach it when a method stopped working.
+  - type: input
+    id: version
+    attributes:
+      label: Bridge version and Songport version
+      placeholder: "Bridge 1.3.21, Songport 1.0.35"
+    validations:
+      required: true
+  - type: dropdown
+    id: service
+    attributes:
+      label: Connector
+      options: [YouTube Music, Amazon Music, Spotify sign-in, Apple Music sign-in]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what the Bridge or Songport showed. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Songport technical details report
+      render: text
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version

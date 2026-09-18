@@ -127,6 +127,14 @@ and `.APPLE_LOGIN`.
 A fork that rebuilds Songport with its own signing key must also rebuild the Bridge with that key's
 fingerprint in `Allowed.SHA256`, otherwise the two apps will not talk to each other.
 
+## Beta
+
+The Bridge is in open beta together with Songport. It is the part most exposed to changes on the
+services' side, so "it worked yesterday" reports are expected and welcome: open an
+[issue](https://github.com/xlollx/Songport-YTM-Bridge/issues/new/choose) with Songport's technical
+details report (Log tab → *Share technical details*), which includes the plugin statistics, and for
+Amazon Music the file from the **Capture traffic** screen.
+
 ## Install
 
 1. Download the latest APK from the [Releases](https://github.com/xlollx/Songport-YTM-Bridge/releases) page.
