@@ -436,15 +436,17 @@ class YtmClient(private val ctx: Context) {
             val b = run["navigationEndpoint"]["browseEndpoint"]["browseId"].str
             b != null && (b.startsWith("UC") || b.startsWith("MPLA"))
         }.mapNotNull { it["text"].str }
+        // The subtitle reads "Artist, Artist • Album • 3:35" for songs and "Channel • 1.2M views • 3:35"
+        // for videos. Anonymous results often carry no links, so the segments between the bullets
+        // are the fallback: the first is the artists, the second the album unless it is a count.
+        val segments = runs1.mapNotNull { it["text"].str }.joinToString("").split('•').map { it.trim() }.filter { it.isNotEmpty() }
         if (artists.isEmpty()) {
-            // No links: take the leading text pieces, skipping separators, durations and play counts.
-            artists = runs1.mapNotNull { it["text"].str }
-                .map { it.trim() }
-                .filter { it.isNotEmpty() && it != "•" && !DURATION.matches(it) && !it.contains("view", true) && !it.contains("play", true) }
-                .take(2)
+            artists = segments.firstOrNull()?.takeIf { !DURATION.matches(it) && !COUNT.matches(it) }
+                ?.split(Regex(""",\s+|\s+&\s+"""))?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
         }
         val album = (cols.getOrNull(2)["runs"].arr + runs1)
             .firstOrNull { it["navigationEndpoint"]["browseEndpoint"]["browseId"].str?.startsWith("MPREb") == true }["text"].str
+            ?: segments.getOrNull(1)?.takeIf { !DURATION.matches(it) && !COUNT.matches(it) }
             ?: ""
         val durationText = r["fixedColumns"].arr.firstOrNull()["musicResponsiveListItemFixedColumnRenderer"]["text"].runsText()
             ?: runs1.mapNotNull { it["text"].str?.trim() }.firstOrNull { DURATION.matches(it) }
@@ -485,6 +487,8 @@ class YtmClient(private val ctx: Context) {
         const val CLIENT_VERSION = "1.20250901.01.00"
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
         /** Search filter "Songs". */
+        /** "1.2M views", "12 Mln di visualizzazioni", "3,4 M de vues": a play count, not an album. */
+        private val COUNT = Regex("""^\d[\d.,\s]*\s*(K|M|B|Mln|Mrd|mila|k|m)?\.?\s*(di\s+)?(views?|plays?|visualizzazioni|riproduzioni|vues?|Aufrufe|Wiedergaben|visualizaciones)?$""", RegexOption.IGNORE_CASE)
         private const val SONGS_FILTER = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
         // Same parameters as the songs filter with the type nibble set to videos (ytmusicapi: I -> Q).
         private const val VIDEOS_FILTER = "EgWKAQIQAWoMEA4QChADEAQQCRAF"
