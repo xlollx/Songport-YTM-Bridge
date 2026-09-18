@@ -364,7 +364,7 @@ class YtmClient(private val ctx: Context) {
         return resp.findAll("musicResponsiveListItemRenderer")
             .mapNotNull { parseItem(it) }
             .filter { seen.add(it.id) }
-            .take(8)
+            .take(20)
     }
 
     // ------------------------------------------------------------------ writes

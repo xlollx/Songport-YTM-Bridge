@@ -287,7 +287,10 @@ class AmazonClient(private val ctx: Context) {
     fun searchTracks(query: String): List<TrackDto> {
         val domain = domain()
         val j = call("searchCatalogTracks", mapOf("keyword" to query), "https://$domain/search/${enc(query)}/songs")
-        return parseItems(j).take(8)
+        // Amazon lists the same recording once per edition (album, single, deluxe): one row per
+        // title and artist is enough, and a longer list lets the right artist show up further down.
+        val seen = HashSet<String>()
+        return parseItems(j).filter { seen.add(it.title.lowercase() + "\u0000" + it.artists.joinToString(",").lowercase()) }.take(25)
     }
 
     fun createPlaylist(name: String): PlaylistDto {
