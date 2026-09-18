@@ -51,7 +51,9 @@ cookies, an anonymous visitor id): they do not need the account, and the account
 a long sync would otherwise exhaust. Only if the anonymous route is refused does a search fall back
 to the signed-in session. Library reads and writes always use the session.
 
-Endpoints: `browse` (playlists, playlist contents, liked songs), `search` with the songs filter,
+Endpoints: `browse` (playlists, playlist contents, liked songs), `search` with the songs filter (and
+with the videos filter when asked: a song missing from the music catalogue often exists as a YouTube
+video, which a playlist accepts all the same),
 `playlist/create`, `browse/edit_playlist`, `like/like`, `like/removelike`. Responses are parsed by
 looking for known renderer names anywhere in the tree, not by fixed paths, so small layout changes do
 not break it.

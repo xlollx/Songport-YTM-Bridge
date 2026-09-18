@@ -348,9 +348,14 @@ class YtmClient(private val ctx: Context) {
      * a long sync). Only when the anonymous route is refused does it fall back to the signed-in one,
      * so a sync keeps going in the worst case instead of stopping.
      */
-    fun search(query: String): List<TrackDto> {
+    /**
+     * Catalogue search with the "Songs" filter, or with the "Videos" filter when [videos] is set: a
+     * track missing from the music catalogue often exists as a YouTube video, which a YouTube Music
+     * playlist accepts all the same. Callers ask for videos only after songs came back empty-handed.
+     */
+    fun search(query: String, videos: Boolean = false): List<TrackDto> {
         if (query.isBlank()) return emptyList()
-        val body = mapOf("query" to query, "params" to SONGS_FILTER)
+        val body = mapOf("query" to query, "params" to if (videos) VIDEOS_FILTER else SONGS_FILTER)
         // Once the anonymous route is refused it usually stays refused for a while: searches go
         // through the session for a few minutes rather than paying a refusal on every one of them.
         val anonymousCold = System.currentTimeMillis() - anonRefusedAt < ANON_COOLDOWN_MS
@@ -481,6 +486,8 @@ class YtmClient(private val ctx: Context) {
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
         /** Search filter "Songs". */
         private const val SONGS_FILTER = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+        // Same parameters as the songs filter with the type nibble set to videos (ytmusicapi: I -> Q).
+        private const val VIDEOS_FILTER = "EgWKAQIQAWoMEA4QChADEAQQCRAF"
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
         private val DURATION = Regex("^\\d{1,2}(:\\d{2}){1,2}$")
     }

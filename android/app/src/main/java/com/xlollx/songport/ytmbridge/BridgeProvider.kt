@@ -47,7 +47,7 @@ class BridgeProvider : ContentProvider() {
                         if (offset + PAGE < all.size) putInt("next", offset + PAGE)
                     }
                 }
-                "search" -> ok(json.encodeToString(client.search(arg ?: "")))
+                "search" -> ok(json.encodeToString(client.search(arg ?: "", extras?.getBoolean("videos") == true)))
                 "stats" -> Bundle().apply { putString("stats", YtmClient.Stats.summary()) }
                 "create" -> ok(json.encodeToString(client.createPlaylist(extras?.getString("name") ?: "Playlist", extras?.getString("description") ?: "")))
                 "add" -> {
