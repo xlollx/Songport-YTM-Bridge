@@ -132,7 +132,8 @@ fingerprint in `Allowed.SHA256`, otherwise the two apps will not talk to each ot
 The Bridge is in open beta together with Songport. It is the part most exposed to changes on the
 services' side, so "it worked yesterday" reports are expected and welcome: open an
 [issue](https://github.com/xlollx/Songport-YTM-Bridge/issues/new/choose) with Songport's technical
-details report (Log tab → *Share technical details*), which includes the plugin statistics, and for
+details report (Settings → *Sync log* → *Share technical details*), which includes the plugin
+statistics, and for
 Amazon Music the file from the **Capture traffic** screen.
 
 ## Install
@@ -160,7 +161,8 @@ the APK as a GitHub Release. To release, bump `versionCode` and `versionName` an
 
 ## When it breaks
 
-Open an issue with the Songport diagnostics report ("Share technical details" in Songport's Log tab)
+Open an issue with the Songport diagnostics report (Songport: Settings → Sync log → "Share
+technical details")
 and the Bridge version. For Amazon Music, the Capture traffic screen produces exactly what is needed
 to fix a changed method. Parsing lives in `YtmClient.kt` and `AmazonClient.kt`; most fixes are a
 renderer name or a field that moved.

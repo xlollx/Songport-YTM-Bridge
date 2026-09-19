@@ -6,8 +6,8 @@ body:
     attributes:
       value: |
         The services change their web interfaces without notice, so most Bridge issues are "it worked
-        yesterday". What fixes them fast is Songport's **technical details report** (Log tab → *Share
-        technical details*): it includes the plugin statistics and the last error messages. For Amazon
+        yesterday". What fixes them fast is Songport's **technical details report** (Settings → *Sync
+        log* → *Share technical details*): it includes the plugin statistics and the last error messages. For Amazon
         Music, the **Capture traffic** screen in the Bridge produces a file with the player's calls
         (cookies and tokens stripped): attach it when a method stopped working.
   - type: input
